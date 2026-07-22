@@ -1,54 +1,57 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 
 function Footer() {
-  const currentYear = new Date().getFullYear();
-
   return (
-    <footer className="bg-white border-t border-[#F5EEFD] mt-auto pt-14 pb-8">
-      <div className="max-w-7xl mx-auto px-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-10 mb-12 text-center md:text-left">
+    <footer className="bg-[#4A2B50] text-[#F5EEFD] pt-12 pb-8 mt-auto">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
           
-          {/* Ubicación y Dinámica */}
+          {/* Columna 1: Marca y Eslogan */}
           <div>
-            <h4 className="text-[11px] font-black text-[#4A2B50] uppercase tracking-widest mb-4 flex items-center justify-center md:justify-start gap-2">
-              <i className="fa-solid fa-location-dot"></i> Entregas
-            </h4>
-            <p className="text-sm font-medium text-slate-600 leading-relaxed">
-              MoniMila Bakery opera exclusivamente sobre pedido.<br />
-              Entregas coordinadas en <span className="font-bold text-[#4A2B50]">CDMX</span> y área metropolitana.
+            <h3 className="text-2xl font-serif font-bold text-white mb-4">MoniMila Bakery</h3>
+            <p className="text-[#E8D8F8] italic mb-4">"Bocaditos para el alma."</p>
+            <p className="text-sm text-[#E8D8F8] opacity-80 leading-relaxed">
+              Repostería artesanal inspirada en el amor, las enseñanzas y el legado de nuestra familia.
             </p>
           </div>
 
-          {/* Contacto WhatsApp */}
+          {/* Columna 2: La nueva sección de Innovación/Esencia */}
           <div>
-            <h4 className="text-[11px] font-black text-[#4A2B50] uppercase tracking-widest mb-4 flex items-center justify-center md:justify-start gap-2">
-              <i className="fa-brands fa-whatsapp text-lg"></i> Pedidos Directos
-            </h4>
-            <a href="https://wa.me/525500000000" target="_blank" rel="noreferrer" className="inline-block text-sm font-medium text-slate-600 hover:text-[#4A2B50] transition-colors bg-[#F5EEFD] px-4 py-2 rounded-lg">
-              Enviar mensaje a WhatsApp
-            </a>
-          </div>
-
-          {/* La Fusión de Dos Mundos */}
-          <div>
-            <h4 className="text-[11px] font-black text-[#4A2B50] uppercase tracking-widest mb-4 flex items-center justify-center md:justify-start gap-2">
-              <i className="fa-solid fa-wand-magic-sparkles"></i> Innovación
-            </h4>
-            <p className="text-sm font-medium text-slate-600 leading-relaxed">
-              Tradición horneada en casa fusionada con tecnología. <br/>
-              Figuras temáticas exclusivas impresas en 3D con precisión de nivel <span className="italic">Flashforge AD5X</span> para nuestras Roscas de Reyes.
+            <h4 className="text-lg font-bold text-white mb-4">Tradición y Creatividad</h4>
+            <p className="text-sm text-[#E8D8F8] leading-relaxed">
+              Fusionamos las recetas clásicas con detalles únicos. Nuestras creaciones de temporada, como las Roscas, esconden sorpresas temáticas de diseño exclusivo para que cada celebración sea inolvidable sin perder la calidez de lo hecho en casa.
             </p>
           </div>
 
+          {/* Columna 3: Enlaces y Redes */}
+          <div>
+            <h4 className="text-lg font-bold text-white mb-4">Explora</h4>
+            <ul className="space-y-2 mb-6 text-sm text-[#E8D8F8]">
+              <li><Link to="/" className="hover:text-white transition-colors">Inicio</Link></li>
+              <li><Link to="/catalogo" className="hover:text-white transition-colors">Menú</Link></li>
+              <li><Link to="/nosotros" className="hover:text-white transition-colors">Nuestra Historia</Link></li>
+            </ul>
+            
+            {/* Íconos de Redes Sociales */}
+            <div className="flex gap-4 text-xl">
+              <a href="#" className="hover:text-[#E8D8F8] text-white transition-transform hover:scale-110">
+                <i className="fa-brands fa-instagram"></i>
+              </a>
+              <a href="#" className="hover:text-[#E8D8F8] text-white transition-transform hover:scale-110">
+                <i className="fa-brands fa-facebook"></i>
+              </a>
+              <a href="#" className="hover:text-[#E8D8F8] text-white transition-transform hover:scale-110">
+                <i className="fa-brands fa-whatsapp"></i>
+              </a>
+            </div>
+          </div>
+          
         </div>
         
-        <div className="pt-6 border-t border-[#F5EEFD] flex flex-col md:flex-row justify-between items-center gap-4">
-          <div className="text-[11px] font-medium text-slate-400">
-            © {currentYear} MoniMila Bakery. Bocadito para el alma.
-          </div>
-          <div className="text-[10px] text-[#4A2B50] font-black uppercase tracking-widest bg-[#F5EEFD] px-3 py-1 rounded-full">
-            Artesanal & 3D
-          </div>
+        {/* Copyright */}
+        <div className="border-t border-[#E8D8F8]/20 pt-8 text-center text-xs text-[#E8D8F8] opacity-60">
+          <p>&copy; {new Date().getFullYear()} MoniMila Bakery. Todos los derechos reservados.</p>
         </div>
       </div>
     </footer>
