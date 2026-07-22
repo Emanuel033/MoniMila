@@ -4,8 +4,8 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 // Importamos tus componentes
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
-import Inicio from './Inicio'; // O la ruta donde lo tengas
-import Nosotros from './Nosotros'; // O la ruta donde lo tengas
+import Inicio from './pages/Inicio/Inicio'; // O la ruta donde lo tengas
+import Nosotros from './pages/Nosotos/Nosotros'; // O la ruta donde lo tengas
 // import Catalogo from './Catalogo'; (Si tienes un archivo para tu menú)
 
 function App() {
