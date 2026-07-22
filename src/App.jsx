@@ -1,35 +1,38 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 
-// Importamos las nuevas vistas de MoniMila Bakery (Tendremos que crear estas carpetas)
-import Inicio from './pages/Inicio/Inicio';
-import Catalogo from './pages/Catalogo/Catalogo';
-import Nosotros from './pages/Nosotros/Nosotros'; // Aquí irá la Historia, Misión, Visión y Valores
-
-// Aquí agregaremos el Navbar y el Footer más adelante para que salgan en todas las vistas
-// import Navbar from './components/Navbar';
-// import Footer from './components/Footer';
+// Importamos tus componentes
+import Navbar from './components/Navbar';
+import Footer from './components/Footer';
+import Inicio from './Inicio'; // O la ruta donde lo tengas
+import Nosotros from './Nosotros'; // O la ruta donde lo tengas
+// import Catalogo from './Catalogo'; (Si tienes un archivo para tu menú)
 
 function App() {
   return (
     <Router>
-      {/* <Navbar /> */}
-      
-      <Routes>
-        {/* La página principal o Landing Page */}
-        <Route path="/" element={<Inicio />} />
+      {/* Todo lo que envuelve a la página para que el footer baje al fondo */}
+      <div className="flex flex-col min-h-screen">
         
-        {/* El catálogo con el carrito de compras a WhatsApp */}
-        <Route path="/catalogo" element={<Catalogo />} />
-        
-        {/* La sección de identidad de la marca */}
-        <Route path="/nosotros" element={<Nosotros />} />
-        
-      </Routes>
+        {/* 1. El Navbar va ARRIBA de las Rutas */}
+        <Navbar />
 
-      {/* <Footer /> */}
+        {/* 2. El contenido principal (Las páginas que cambian) */}
+        <main className="flex-grow">
+          <Routes>
+            <Route path="/" element={<Inicio />} />
+            <Route path="/nosotros" element={<Nosotros />} />
+            {/* <Route path="/catalogo" element={<Catalogo />} /> */}
+          </Routes>
+        </main>
+
+        {/* 3. El Footer va ABAJO de las Rutas */}
+        <Footer />
+
+      </div>
     </Router>
   );
 }
 
 export default App;
+
