@@ -28,7 +28,7 @@ function Nosotros() {
             {/* Aquí es donde aparecerá el logo gigante de 30838.png sin fondo */}
             <div className="w-full md:w-1/3 flex justify-center">
               <img 
-                src="/logo.png" 
+                src="/icons/logo-512.png" 
                 alt="Logo MoniMila Bakery - Manuel y Edelmira" 
                 className="w-56 h-56 md:w-72 md:h-72 object-contain drop-shadow-lg transition-transform hover:scale-105 duration-300"
                 onError={(e) => {
