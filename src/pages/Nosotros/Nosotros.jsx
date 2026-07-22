@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 function Nosotros() {
@@ -22,14 +21,28 @@ function Nosotros() {
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 -mt-10 relative z-10">
         
-        {/* Sección Historia */}
+        {/* Sección Historia con el Logo de tus abuelos */}
         <section className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8 md:p-12 mb-12">
           <div className="flex flex-col md:flex-row gap-10 items-center">
+            
+            {/* Aquí es donde aparecerá el logo gigante de 30838.png sin fondo */}
             <div className="w-full md:w-1/3 flex justify-center">
-              <div className="w-48 h-48 bg-[#F5EEFD] rounded-full flex items-center justify-center text-[#4A2B50] text-6xl shadow-inner">
+              <img 
+                src="/logo.png" 
+                alt="Logo MoniMila Bakery - Manuel y Edelmira" 
+                className="w-56 h-56 md:w-72 md:h-72 object-contain drop-shadow-lg transition-transform hover:scale-105 duration-300"
+                onError={(e) => {
+                  // Si por alguna razón no carga el logo, muestra un círculo bonito de repuesto
+                  e.target.onerror = null;
+                  e.target.style.display = 'none';
+                  e.target.nextSibling.style.display = 'flex';
+                }}
+              />
+              <div className="hidden w-48 h-48 bg-[#F5EEFD] rounded-full items-center justify-center text-[#4A2B50] text-6xl shadow-inner">
                 <i className="fa-solid fa-heart"></i>
               </div>
             </div>
+
             <div className="w-full md:w-2/3">
               <h2 className="text-3xl font-serif font-bold text-[#4A2B50] mb-6 border-b border-[#F5EEFD] pb-4">
                 Nuestra Historia
@@ -66,7 +79,7 @@ function Nosotros() {
           <i className="fa-solid fa-quote-right absolute bottom-6 right-8 text-6xl text-white opacity-5"></i>
         </section>
 
-        {/* Sección Misión y Visión (Grid de 2 columnas) */}
+        {/* Sección Misión y Visión */}
         <section className="grid md:grid-cols-2 gap-8">
           
           {/* Misión */}
