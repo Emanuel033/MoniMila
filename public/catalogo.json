@@ -1,0 +1,26 @@
+[
+  {
+    "id": "1",
+    "name": "Alfajor Relleno de Dulce de Leche",
+    "category": "Alfajores",
+    "descripcion": "Galleta rellena de dulce de leche (opcional: coco rallado).",
+    "precio": 28,
+    "image": "https://images.unsplash.com/photo-1579899380905-59b589a19c67?w=500&auto=format&fit=crop&q=60"
+  },
+  {
+    "id": "2",
+    "name": "Alfajor Bañado en Chocolate Amargo",
+    "category": "Alfajores",
+    "descripcion": "Relleno de dulce de leche con un exquisito baño de chocolate amargo o de leche.",
+    "precio": 32,
+    "image": "https://images.unsplash.com/photo-1601000673397-90fbceee066e?w=500&auto=format&fit=crop&q=60"
+  },
+  {
+    "id": "3",
+    "name": "Rosca de Reyes (Studio Ghibli)",
+    "category": "Temporada",
+    "descripcion": "Deliciosa rosca artesanal con muñecos exclusivos impresos en 3D.",
+    "precio": 450,
+    "image": "https://images.unsplash.com/photo-1607314545089-1fb469e54d31?w=500&auto=format&fit=crop&q=60"
+  }
+]
