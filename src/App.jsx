@@ -1,41 +1,33 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 
+// Importamos las nuevas vistas de MoniMila Bakery (Tendremos que crear estas carpetas)
+import Inicio from './pages/Inicio/Inicio';
 import Catalogo from './pages/Catalogo/Catalogo';
-import InventarioView from './pages/Inventario/InventarioView';
+import Nosotros from './pages/Nosotros/Nosotros'; // Aquí irá la Historia, Misión, Visión y Valores
 
-// Importamos la Vista de Rutas y su Provider
-import RutasView from './pages/Rutas/RutasView';
-import { LogisticaProvider } from './pages/Rutas/context/LogisticaContext';
-
-// Corrección: Importamos ChoferView con su nombre correcto
-import AppOperador from './pages/Chofer/AppOperador';
-
-import CentroComando from './pages/Admin/CentroComando';
+// Aquí agregaremos el Navbar y el Footer más adelante para que salgan en todas las vistas
+// import Navbar from './components/Navbar';
+// import Footer from './components/Footer';
 
 function App() {
   return (
     <Router>
+      {/* <Navbar /> */}
+      
       <Routes>
-        <Route path="/" element={<Catalogo />} />
-        <Route path="/inventario" element={<InventarioView />} />
+        {/* La página principal o Landing Page */}
+        <Route path="/" element={<Inicio />} />
         
-        <Route 
-          path="/rutas" 
-          element={
-            <LogisticaProvider>
-              <RutasView />
-            </LogisticaProvider>
-          } 
-        />
-
-       {/* La nueva ruta del Admin */}
-    <Route path="/admin" element={<CentroComando />} />
+        {/* El catálogo con el carrito de compras a WhatsApp */}
+        <Route path="/catalogo" element={<Catalogo />} />
         
-        {/* Agregamos la ruta para el Chofer */}
-        <Route path="/chofer" element={<AppOperador />} />
+        {/* La sección de identidad de la marca */}
+        <Route path="/nosotros" element={<Nosotros />} />
         
       </Routes>
+
+      {/* <Footer /> */}
     </Router>
   );
 }
