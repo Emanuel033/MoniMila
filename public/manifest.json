@@ -1,8 +1,8 @@
 {
   "id": "/app-catalogo-v1",
   "scope": "/",
-  "name": "Catálogo La Económica",
-  "short_name": "Catálogo",
+  "name": "MoniMila Bakery",
+  "short_name": "MoniMila",
   "start_url": "/?modo=app",
   "display": "standalone",
   "background_color": "#ffffff",
