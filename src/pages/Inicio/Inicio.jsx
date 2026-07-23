@@ -5,24 +5,47 @@ function Inicio() {
   return (
     <div className="flex flex-col min-h-screen bg-slate-50">
       
-      {/* Sección Hero */}
+      {/* Sección Hero con el Logo Gigante */}
       <section className="relative bg-[#F5EEFD] overflow-hidden">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 lg:py-32 flex flex-col items-center text-center relative z-10">
-          <span className="text-sm font-bold tracking-widest text-[#4A2B50] uppercase mb-4 bg-white px-4 py-1 rounded-full shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 lg:py-24 flex flex-col items-center text-center relative z-10">
+          
+          {/* El Logo Protagonista */}
+          <img 
+            src="/logo.png" 
+            alt="MoniMila Bakery" 
+            className="w-64 h-64 md:w-80 md:h-80 object-contain drop-shadow-2xl mb-8 transition-transform hover:scale-105 duration-500"
+            onError={(e) => {
+              e.target.style.display = 'none';
+              e.target.nextSibling.style.display = 'block';
+            }}
+          />
+          {/* Respaldo por si tarda en cargar la imagen */}
+          <h1 className="hidden text-4xl md:text-6xl font-serif font-bold text-[#4A2B50] mb-6">
+            MoniMila Bakery
+          </h1>
+
+          <span className="text-sm font-bold tracking-widest text-[#4A2B50] uppercase mb-4 bg-white px-5 py-2 rounded-full shadow-sm">
             Repostería Artesanal
           </span>
-          <h1 className="text-4xl md:text-6xl font-serif font-bold text-[#4A2B50] mb-6 leading-tight">
-            Un bocadito para el alma,<br className="hidden md:block"/> horneado en casa.
-          </h1>
-          <p className="text-lg text-slate-600 mb-10 max-w-2xl font-medium">
-            Descubre nuestra selección de alfajores rellenos y roscas de temporada. Hechos sobre pedido para garantizar la máxima frescura en cada mordida.
+          
+          <p className="text-xl md:text-2xl text-[#4A2B50] font-serif font-bold italic mb-10">
+            "Bocaditos para el alma."
           </p>
-          <Link 
-            to="/catalogo" 
-            className="bg-[#4A2B50] hover:bg-opacity-90 text-white text-lg font-bold px-8 py-4 rounded-2xl shadow-lg transition-transform hover:-translate-y-1 active:scale-95 flex items-center gap-3"
-          >
-            <i className="fa-solid fa-cake-candles"></i> Ver el Menú
-          </Link>
+
+          <div className="flex gap-4 flex-col sm:flex-row">
+            <Link 
+              to="/catalogo" 
+              className="bg-[#4A2B50] hover:bg-opacity-90 text-white text-lg font-bold px-8 py-4 rounded-2xl shadow-lg transition-transform hover:-translate-y-1 flex items-center justify-center gap-3"
+            >
+              <i className="fa-solid fa-cake-candles"></i> Ver el Menú
+            </Link>
+            <Link 
+              to="/cotizador" 
+              className="bg-white border-2 border-[#4A2B50] text-[#4A2B50] hover:bg-[#F5EEFD] text-lg font-bold px-8 py-4 rounded-2xl shadow-sm transition-transform hover:-translate-y-1 flex items-center justify-center gap-3"
+            >
+              <i className="fa-solid fa-calculator"></i> Cotizar Pedido
+            </Link>
+          </div>
         </div>
         
         {/* Elementos decorativos */}
@@ -43,42 +66,32 @@ function Inicio() {
           </div>
 
           <div className="grid md:grid-cols-2 gap-8">
-            
-            {/* Tarjeta 1: Alfajores */}
-            <div className="bg-slate-50 rounded-3xl p-8 border border-slate-100 flex flex-col md:flex-row items-center gap-8 group hover:shadow-md transition-shadow">
-              <div className="w-32 h-32 shrink-0 bg-[#F5EEFD] rounded-full flex items-center justify-center text-5xl text-[#4A2B50] group-hover:scale-110 transition-transform">
+            {/* Tarjeta Alfajores */}
+            <div className="bg-slate-50 rounded-3xl p-8 border border-slate-100 flex flex-col md:flex-row items-center gap-8 hover:shadow-md transition-shadow">
+              <div className="w-32 h-32 shrink-0 bg-[#F5EEFD] rounded-full flex items-center justify-center text-5xl text-[#4A2B50]">
                 <i className="fa-solid fa-cookie-bite"></i>
               </div>
               <div className="text-center md:text-left">
                 <h3 className="text-xl font-bold text-[#4A2B50] mb-3">Alfajores Clásicos</h3>
-                <p className="text-slate-600 mb-4">Galletas que se deshacen en la boca, rellenas de abundante dulce de leche y preparadas siguiendo la tradición familiar.</p>
-                <Link to="/catalogo" className="text-sm font-bold text-[#4A2B50] hover:text-indigo-600 uppercase tracking-wide">
-                  Pedir ahora <i className="fa-solid fa-arrow-right ml-1"></i>
-                </Link>
+                <p className="text-slate-600 mb-4">Galletas que se deshacen en la boca, preparadas siguiendo la tradición familiar.</p>
               </div>
             </div>
 
-            {/* Tarjeta 2: Roscas */}
-            <div className="bg-slate-50 rounded-3xl p-8 border border-slate-100 flex flex-col md:flex-row items-center gap-8 group hover:shadow-md transition-shadow">
-              <div className="w-32 h-32 shrink-0 bg-[#F5EEFD] rounded-full flex items-center justify-center text-5xl text-[#4A2B50] group-hover:scale-110 transition-transform">
+            {/* Tarjeta Roscas y Figuras */}
+            <div className="bg-slate-50 rounded-3xl p-8 border border-slate-100 flex flex-col md:flex-row items-center gap-8 hover:shadow-md transition-shadow">
+              <div className="w-32 h-32 shrink-0 bg-[#F5EEFD] rounded-full flex items-center justify-center text-5xl text-[#4A2B50]">
                 <i className="fa-solid fa-crown"></i>
               </div>
               <div className="text-center md:text-left">
                 <h3 className="text-xl font-bold text-[#4A2B50] mb-3">Roscas de Temporada</h3>
-                <p className="text-slate-600 mb-4">Nuestra receta tradicional con un toque único: figuras temáticas coleccionables escondidas en su interior, diseñadas exclusivamente por nosotros.</p>
-                <Link to="/catalogo" className="text-sm font-bold text-[#4A2B50] hover:text-indigo-600 uppercase tracking-wide">
-                  Ver temporada <i className="fa-solid fa-arrow-right ml-1"></i>
-                </Link>
+                <p className="text-slate-600 mb-4">Receta tradicional con figuras temáticas de diseño exclusivo escondidas en su interior.</p>
               </div>
             </div>
-
           </div>
         </div>
       </section>
-
     </div>
   );
 }
 
 export default Inicio;
-
