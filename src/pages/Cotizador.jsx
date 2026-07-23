@@ -1,112 +1,190 @@
 import React, { useState } from 'react';
 
 function Cotizador() {
-  const [producto, setProducto] = useState('alfajores');
-  const [cantidad, setCantidad] = useState(1);
-  const [incluyeFigura, setIncluyeFigura] = useState(false);
+  const [nombreProducto, setNombreProducto] = useState('');
+  const [piezasProducidas, setPiezasProducidas] = useState(12); // Ej: Cuántos alfajores salen en un lote
+  const [materiales, setMateriales] = useState([
+    { id: 1, nombre: 'Harina / Secos', costo: 40 },
+    { id: 2, nombre: 'Dulce de Leche / Relleno', costo: 80 },
+    { id: 3, nombre: 'Empaque y Etiquetas', costo: 25 }
+  ]);
+  
+  const [nuevoMaterial, setNuevoMaterial] = useState('');
+  const [nuevoCosto, setNuevoCosto] = useState('');
+  const [margenGanancia, setMargenGanancia] = useState(50); // Porcentaje de ganancia deseada (%)
 
-  // Puedes ajustar estos precios directamente aquí
-  const preciosBase = {
-    alfajores: 35, // Precio por alfajor
-    rosca_chica: 250, // Precio por rosca
-    rosca_grande: 450
+  // Agregar nuevo material o ingrediente
+  const agregarMaterial = (e) => {
+    e.preventDefault();
+    if (!nuevoMaterial || !nuevoCosto) return;
+    setMateriales([
+      ...materiales,
+      { id: Date.now(), nombre: nuevoMaterial, costo: parseFloat(nuevoCosto) || 0 }
+    ]);
+    setNuevoMaterial('');
+    setNuevoCosto('');
   };
-  const costoFiguraExtra = 60; // Costo por añadir figura temática personalizada
 
-  // Lógica de cálculo
-  const calcularTotal = () => {
-    let subtotal = preciosBase[producto] * cantidad;
-    let costoExtras = incluyeFigura ? (costoFiguraExtra * cantidad) : 0;
-    
-    // Si son alfajores por docena, podrías aplicar un descuento aquí si quisieras
-    return subtotal + costoExtras;
+  // Eliminar material
+  const eliminarMaterial = (id) => {
+    setMateriales(materiales.filter(item => item.id !== id));
   };
+
+  // Cálculos matemáticos
+  const costoTotalInsumos = materiales.reduce((total, item) => total + item.costo, 0);
+  const costoPorPieza = piezasProducidas > 0 ? costoTotalInsumos / piezasProducidas : 0;
+  const gananciaPorPieza = costoPorPieza * (margenGanancia / 100);
+  const precioSugeridoVenta = costoPorPieza + gananciaPorPieza;
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-16">
+    <div className="max-w-4xl mx-auto px-4 py-12">
       <div className="text-center mb-10">
-        <h2 className="text-4xl font-serif font-bold text-[#4A2B50] mb-4">Cotizador de Pedidos</h2>
-        <p className="text-slate-600">Calcula el presupuesto para tus eventos o pedidos especiales.</p>
+        <span className="text-xs font-bold tracking-widest text-[#4A2B50] uppercase bg-[#F5EEFD] px-4 py-1.5 rounded-full">
+          Herramienta Interna
+        </span>
+        <h2 className="text-4xl font-serif font-bold text-[#4A2B50] mt-3 mb-2">Calculadora de Costos y Precios</h2>
+        <p className="text-slate-600">Calcula tus gastos en materiales, costos de producción y define tu precio de venta ideal.</p>
       </div>
 
-      <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-8 md:p-12">
-        <div className="grid md:grid-cols-2 gap-12">
+      <div className="grid md:grid-cols-2 gap-8">
+        
+        {/* Columna Izquierda: Ingresos de Datos (Materiales y Lote) */}
+        <div className="space-y-6">
           
-          {/* Controles de la Calculadora */}
-          <div className="space-y-6">
+          {/* Datos del Producto */}
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-4">
+            <h3 className="font-serif font-bold text-lg text-[#4A2B50]">1. Datos del Lote</h3>
             
-            {/* Selección de Producto */}
             <div>
-              <label className="block text-sm font-bold text-[#4A2B50] mb-2">Tipo de Producto</label>
-              <select 
-                value={producto} 
-                onChange={(e) => setProducto(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-700 focus:outline-none focus:border-[#4A2B50] focus:ring-1 focus:ring-[#4A2B50]"
-              >
-                <option value="alfajores">Alfajores Clásicos (Pieza)</option>
-                <option value="rosca_chica">Rosca de Temporada (Chica)</option>
-                <option value="rosca_grande">Rosca de Temporada (Grande)</option>
-              </select>
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nombre del Producto / Lote</label>
+              <input 
+                type="text" 
+                placeholder="Ej. Docena de Alfajores Clásicos"
+                value={nombreProducto}
+                onChange={(e) => setNombreProducto(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-slate-700 text-sm focus:outline-none focus:border-[#4A2B50]"
+              />
             </div>
 
-            {/* Selección de Cantidad */}
             <div>
-              <label className="block text-sm font-bold text-[#4A2B50] mb-2">Cantidad</label>
-              <div className="flex items-center gap-4">
-                <button 
-                  onClick={() => setCantidad(Math.max(1, cantidad - 1))}
-                  className="w-12 h-12 rounded-full bg-[#F5EEFD] text-[#4A2B50] font-bold text-xl hover:bg-[#E8D8F8] transition-colors"
-                >-</button>
-                <span className="text-2xl font-bold text-slate-700 w-12 text-center">{cantidad}</span>
-                <button 
-                  onClick={() => setCantidad(cantidad + 1)}
-                  className="w-12 h-12 rounded-full bg-[#F5EEFD] text-[#4A2B50] font-bold text-xl hover:bg-[#E8D8F8] transition-colors"
-                >+</button>
-              </div>
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Piezas que salen en total</label>
+              <input 
+                type="number" 
+                min="1"
+                value={piezasProducidas}
+                onChange={(e) => setPiezasProducidas(parseInt(e.target.value) || 1)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-slate-700 text-sm focus:outline-none focus:border-[#4A2B50]"
+              />
             </div>
-
-            {/* Opción de Figura Personalizada */}
-            <div className="pt-4 border-t border-slate-100">
-              <label className="flex items-center gap-3 cursor-pointer group">
-                <div className="relative flex items-center">
-                  <input 
-                    type="checkbox" 
-                    checked={incluyeFigura}
-                    onChange={(e) => setIncluyeFigura(e.target.checked)}
-                    className="w-6 h-6 border-2 border-slate-300 rounded-md appearance-none checked:bg-[#4A2B50] checked:border-[#4A2B50] transition-colors"
-                  />
-                  <i className={`fa-solid fa-check absolute left-1 text-white text-sm pointer-events-none transition-opacity ${incluyeFigura ? 'opacity-100' : 'opacity-0'}`}></i>
-                </div>
-                <div>
-                  <p className="font-bold text-[#4A2B50]">Incluir Sorpresa Temática</p>
-                  <p className="text-xs text-slate-500">Añade figuras de diseño exclusivo al interior (+${costoFiguraExtra})</p>
-                </div>
-              </label>
-            </div>
-
           </div>
 
-          {/* Tarjeta de Resultado Total */}
-          <div className="bg-[#4A2B50] rounded-2xl p-8 text-white flex flex-col justify-center relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-6 opacity-10">
-              <i className="fa-solid fa-calculator text-8xl"></i>
+          {/* Lista de Materiales / Gastos */}
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-4">
+            <h3 className="font-serif font-bold text-lg text-[#4A2B50]">2. Costos de Materiales e Insumos</h3>
+            
+            <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+              {materiales.map((item) => (
+                <div key={item.id} className="flex justify-between items-center bg-slate-50 px-4 py-2 rounded-xl text-sm">
+                  <span className="font-medium text-slate-700">{item.nombre}</span>
+                  <div className="flex items-center gap-3">
+                    <span className="font-bold text-[#4A2B50]">${item.costo.toFixed(2)}</span>
+                    <button 
+                      onClick={() => eliminarMaterial(item.id)}
+                      className="text-red-400 hover:text-red-600 text-xs"
+                    >
+                      <i className="fa-solid fa-trash"></i>
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
-            
-            <h3 className="text-xl font-medium text-[#E8D8F8] mb-2 relative z-10">Total Estimado</h3>
-            <div className="text-5xl font-bold font-serif mb-6 relative z-10">
-              ${calcularTotal()} <span className="text-lg font-normal">MXN</span>
+
+            {/* Formulario para agregar nuevo material */}
+            <form onSubmit={agregarMaterial} className="pt-2 border-t border-slate-100 flex gap-2">
+              <input 
+                type="text" 
+                placeholder="Material o Ingrediente"
+                value={nuevoMaterial}
+                onChange={(e) => setNuevoMaterial(e.target.value)}
+                className="flex-grow bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 focus:outline-none focus:border-[#4A2B50]"
+              />
+              <input 
+                type="number" 
+                placeholder="Costo ($)"
+                value={nuevoCosto}
+                onChange={(e) => setNuevoCosto(e.target.value)}
+                className="w-24 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-700 focus:outline-none focus:border-[#4A2B50]"
+              />
+              <button 
+                type="submit"
+                className="bg-[#4A2B50] text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-opacity-90"
+              >
+                +
+              </button>
+            </form>
+          </div>
+
+          {/* Margen de Ganancia */}
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-3">
+            <div className="flex justify-between items-center">
+              <h3 className="font-serif font-bold text-lg text-[#4A2B50]">3. Margen de Ganancia Deseado</h3>
+              <span className="bg-[#F5EEFD] text-[#4A2B50] font-bold px-3 py-1 rounded-full text-sm">{margenGanancia}%</span>
             </div>
-            
-            <p className="text-sm text-[#E8D8F8] opacity-80 mb-8 relative z-10">
-              *Los precios no incluyen costo de envío. El envío a domicilio se cotizará al confirmar tu pedido.
-            </p>
-            
-            <button className="w-full bg-white text-[#4A2B50] hover:bg-[#F5EEFD] font-bold py-4 rounded-xl transition-colors relative z-10 shadow-lg flex items-center justify-center gap-2">
-              <i className="fa-brands fa-whatsapp text-xl"></i> Enviar por WhatsApp
-            </button>
+            <input 
+              type="range" 
+              min="10" 
+              max="200" 
+              step="5"
+              value={margenGanancia}
+              onChange={(e) => setMargenGanancia(parseInt(e.target.value))}
+              className="w-full accent-[#4A2B50] cursor-pointer"
+            />
+            <div className="flex justify-between text-xs text-slate-400">
+              <span>10% (Bajo)</span>
+              <span>100% (Doble)</span>
+              <span>200% (Alto)</span>
+            </div>
           </div>
 
         </div>
+
+        {/* Columna Derecha: Resultados y Desglose Financiero */}
+        <div className="bg-[#4A2B50] rounded-3xl p-8 text-white flex flex-col justify-between shadow-lg relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-8 opacity-5">
+            <i className="fa-solid fa-chart-pie text-9xl"></i>
+          </div>
+
+          <div>
+            <span className="text-xs uppercase tracking-widest text-[#E8D8F8] font-bold">Resumen Financiero</span>
+            <h3 className="text-2xl font-serif font-bold mt-1 mb-6">{nombreProducto || 'Tu Producto'}</h3>
+
+            <div className="space-y-6">
+              <div className="border-b border-white/10 pb-4">
+                <p className="text-xs text-[#E8D8F8] opacity-80">Costo total de insumos del lote</p>
+                <p className="text-3xl font-bold font-serif">${costoTotalInsumos.toFixed(2)} <span className="text-xs font-normal">MXN</span></p>
+              </div>
+
+              <div className="border-b border-white/10 pb-4">
+                <p className="text-xs text-[#E8D8F8] opacity-80">Costo real de producción por cada pieza</p>
+                <p className="text-3xl font-bold font-serif">${costoPorPieza.toFixed(2)} <span className="text-xs font-normal">MXN</span></p>
+              </div>
+
+              <div className="bg-white/10 p-5 rounded-2xl">
+                <p className="text-xs text-[#E8D8F8] font-bold uppercase mb-1">Precio sugerido de venta por pieza</p>
+                <p className="text-4xl font-bold font-serif text-[#E8D8F8]">${precioSugeridoVenta.toFixed(2)} <span className="text-sm font-normal">MXN</span></p>
+                <p className="text-[11px] text-[#E8D8F8] opacity-70 mt-2">
+                  *Incluye tus materiales y tu ganancia del {margenGanancia}%.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-8 pt-4 border-t border-white/10 text-center text-xs text-[#E8D8F8] opacity-60">
+            Calculadora de costos interna de MoniMila Bakery
+          </div>
+
+        </div>
+
       </div>
     </div>
   );
