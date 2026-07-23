@@ -39,12 +39,6 @@ function Inicio() {
             >
               <i className="fa-solid fa-cake-candles"></i> Ver el Menú
             </Link>
-            <Link 
-              to="/cotizador" 
-              className="bg-white border-2 border-[#4A2B50] text-[#4A2B50] hover:bg-[#F5EEFD] text-lg font-bold px-8 py-4 rounded-2xl shadow-sm transition-transform hover:-translate-y-1 flex items-center justify-center gap-3"
-            >
-              <i className="fa-solid fa-calculator"></i> Cotizar Pedido
-            </Link>
           </div>
         </div>
         
