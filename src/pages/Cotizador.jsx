@@ -191,5 +191,4 @@ function Cotizador() {
     </div>
   );
 }
-
-export data export default Cotizador;
+export default Cotizador;
