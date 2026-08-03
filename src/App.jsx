@@ -9,7 +9,7 @@ import Nosotros from './pages/Nosotros/Nosotros'; // O la ruta donde lo tengas
 import Catalogo from './pages/Catalogo/Catalogo'; //(Si tienes un archivo para tu menú)
 import Cotizador from './pages/Cotizador'; //(Si tienes un archivo para tu menú)
 import Admin from './pages/Admin';
-import Preguntas from '/pages/Preguntas'
+import Preguntas from '/pages/Preguntas';
 function App() {
   return (
     <Router>
