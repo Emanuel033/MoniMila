@@ -7,11 +7,13 @@ function Navbar() {
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-    const navLinks = [
+      const navLinks = [
     { name: 'Inicio', path: '/' },
     { name: 'Menú', path: '/catalogo' },
-    { name: 'Nosotros', path: '/nosotros' }
+    { name: 'Nosotros', path: '/nosotros' },
+    { name: 'Dudas', path: '/preguntas' } // <-- ¡Este es el nuevo!
   ];
+
 
 
   const isActive = (path) => location.pathname === path;

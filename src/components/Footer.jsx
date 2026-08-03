@@ -23,15 +23,17 @@ function Footer() {
               Fusionamos las recetas clásicas con detalles únicos. Nuestras creaciones de temporada, como las Roscas, esconden sorpresas temáticas de diseño exclusivo para que cada celebración sea inolvidable sin perder la calidez de lo hecho en casa.
             </p>
           </div>
-
-          {/* Columna 3: Enlaces y Redes */}
+                    {/* Columna 3: Enlaces y Redes */}
           <div>
             <h4 className="text-lg font-bold text-white mb-4">Explora</h4>
             <ul className="space-y-2 mb-6 text-sm text-[#E8D8F8]">
               <li><Link to="/" className="hover:text-white transition-colors">Inicio</Link></li>
               <li><Link to="/catalogo" className="hover:text-white transition-colors">Menú</Link></li>
               <li><Link to="/nosotros" className="hover:text-white transition-colors">Nuestra Historia</Link></li>
+              {/* Este es el enlace nuevo para el footer */}
+              <li><Link to="/preguntas" className="hover:text-white transition-colors">Ayuda y Envíos</Link></li>
             </ul>
+
             
             {/* Íconos de Redes Sociales */}
             <div className="flex gap-4 text-xl">
