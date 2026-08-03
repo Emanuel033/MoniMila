@@ -1,19 +1,72 @@
 import React, { useState } from 'react';
+import { db, storage } from '../firebase'; // Importamos tu conexión
+import { collection, addDbDoc, addDoc } from 'firebase/firestore'; // Ojo: usamos addDoc
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 function Admin() {
-  // Estados para simular la base de datos y herramientas
   const [modoPruebas, setModoPruebas] = useState(true);
-  const [seccionActiva, setSeccionActiva] = useState('dashboard'); // dashboard, catalogo, historial
+  const [seccionActiva, setSeccionActiva] = useState('dashboard');
   
-  // Formulario CRUD
-  const [nuevoProducto, setNuevoProducto] = useState({
-    nombre: '', descripcion: '', precio: '', categoria: 'Alfajores', subcategoria: '', foto: ''
-  });
+  // Estados para el formulario de productos
+  const [nombre, setNombre] = useState('');
+  const [descripcion, setDescripcion] = useState('');
+  const [precio, setPrecio] = useState('');
+  const [categoria, setCategoria] = useState('Alfajores');
+  const [subcategoria, setSubcategoria] = useState('');
+  const [imagen, setImagen] = useState(null);
+  const [cargando, setCargando] = useState(false);
+  const [mensajeExito, setMensajeExito] = useState('');
+
+  // Función para guardar el producto en Firebase
+  const guardarProducto = async (e) => {
+    e.preventDefault();
+    if (!nombre || !precio || !imagen) {
+      alert("Por favor completa los campos obligatorios y selecciona una imagen.");
+      return;
+    }
+
+    try {
+      setCargando(true);
+      
+      // 1. Subir la imagen a Firebase Storage
+      const storageRef = ref(storage, `productos/${Date.now()}_${imagen.name}`);
+      const snapshot = await uploadBytes(storageRef, imagen);
+      const urlImagen = await getDownloadURL(snapshot.ref);
+
+      // 2. Guardar los datos del producto en Firestore (Base de datos)
+      await addDoc(collection(db, "productos"), {
+        nombre,
+        descripcion,
+        precio: parseFloat(precio),
+        categoria,
+        subcategoria,
+        imagen: urlImagen,
+        creado: new Date()
+      });
+
+      setCargando(false);
+      setMensajeExito("¡Postre guardado con éxito en el catálogo! 🎉");
+      
+      // Limpiar formulario
+      setNombre('');
+      setDescripcion('');
+      setPrecio('');
+      setSubcategoria('');
+      setImagen(null);
+
+      setTimeout(() => setMensajeExito(''), 4000);
+
+    } catch (error) {
+      console.error("Error al guardar el producto: ", error);
+      setCargando(false);
+      alert("Hubo un error al subir el producto. Revisa tu conexión.");
+    }
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row font-sans">
       
-      {/* Menú Lateral (Sidebar) */}
+      {/* Menú Lateral */}
       <aside className="w-full md:w-64 bg-[#4A2B50] text-white flex flex-col shadow-xl">
         <div className="p-6 text-center border-b border-white/10">
           <h2 className="text-2xl font-serif font-bold text-[#F5EEFD]">MoniMila</h2>
@@ -47,14 +100,11 @@ function Admin() {
             <p className="text-xs font-bold uppercase mb-3 opacity-80 text-center">Registro de Ventas</p>
             <button 
               onClick={() => setModoPruebas(!modoPruebas)}
-              className={`w-full py-2 px-4 rounded-xl font-bold text-sm transition-all flex justify-center items-center gap-2 ${modoPruebas ? 'bg-amber-400 text-amber-900 shadow-amber-400/20' : 'bg-emerald-400 text-emerald-900 shadow-emerald-400/20'}`}
+              className={`w-full py-2 px-4 rounded-xl font-bold text-sm transition-all flex justify-center items-center gap-2 ${modoPruebas ? 'bg-amber-400 text-amber-900' : 'bg-emerald-400 text-emerald-900'}`}
             >
               <i className={`fa-solid ${modoPruebas ? 'fa-triangle-exclamation' : 'fa-check'}`}></i>
               {modoPruebas ? 'Modo Pruebas (Pausado)' : 'Activo (Registrando)'}
             </button>
-            <p className="text-[10px] text-center mt-2 opacity-60">
-              {modoPruebas ? 'Las compras no afectarán tus métricas de productos estrella.' : 'Todas las compras generarán estadísticas.'}
-            </p>
           </div>
         </div>
       </aside>
@@ -62,11 +112,10 @@ function Admin() {
       {/* Contenido Principal */}
       <main className="flex-1 p-4 md:p-8 overflow-y-auto">
         
-        {/* VISTA 1: Dashboard y Productos Estrella */}
         {seccionActiva === 'dashboard' && (
           <div className="space-y-6">
             <h1 className="text-3xl font-serif font-bold text-[#4A2B50]">Tus Productos Estrella 🌟</h1>
-            <p className="text-slate-500 text-sm">Descubre qué postres debes mantener siempre en inventario basándote en lo que más piden.</p>
+            <p className="text-slate-500 text-sm">Descubre qué postres mantener siempre en inventario basándote en el historial de ventas.</p>
             
             <div className="grid md:grid-cols-3 gap-6">
               <div className="bg-gradient-to-br from-amber-100 to-amber-50 border border-amber-200 rounded-3xl p-6 shadow-sm flex flex-col items-center text-center">
@@ -81,7 +130,6 @@ function Admin() {
                 <p className="text-sm text-slate-600 mt-1">28 pedidos este mes</p>
               </div>
               <div className="bg-indigo-50 border border-indigo-100 rounded-3xl p-6 shadow-sm flex flex-col items-center text-center relative overflow-hidden">
-                <div className="absolute top-2 right-2 text-indigo-300"><i className="fa-solid fa-flask"></i></div>
                 <span className="text-indigo-600 font-bold mb-2 uppercase text-xs tracking-wider">Lanzamiento de Prueba</span>
                 <h3 className="font-bold text-[#4A2B50] text-lg">Alfajor de Nuez</h3>
                 <p className="text-sm text-slate-600 mt-1">12 pedidos (Semana 1)</p>
@@ -91,63 +139,114 @@ function Admin() {
           </div>
         )}
 
-        {/* VISTA 2: Gestión del Menú (CRUD) */}
+        {/* VISTA 2: Gestión del Menú (CRUD conectado a Firebase) */}
         {seccionActiva === 'catalogo' && (
           <div className="max-w-3xl">
             <h1 className="text-3xl font-serif font-bold text-[#4A2B50] mb-2">Agregar Nuevo Postre</h1>
-            <p className="text-slate-500 text-sm mb-8">Sube un nuevo producto al catálogo, ya sea fijo o de prueba.</p>
+            <p className="text-slate-500 text-sm mb-6">Sube un nuevo producto al catálogo directamente a la nube.</p>
             
-            <form className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 space-y-6">
+            {mensajeExito && (
+              <div className="mb-6 bg-emerald-100 border border-emerald-300 text-emerald-800 px-6 py-4 rounded-2xl font-bold flex items-center gap-3">
+                <i className="fa-solid fa-circle-check text-xl"></i> {mensajeExito}
+              </div>
+            )}
+
+            <form onSubmit={guardarProducto} className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-100 space-y-6">
               
               <div className="grid md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nombre del Postre</label>
-                  <input type="text" placeholder="Ej. Alfajor de Nuez" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#4A2B50]" />
+                  <input 
+                    type="text" 
+                    placeholder="Ej. Alfajor de Nuez" 
+                    value={nombre}
+                    onChange={(e) => setNombre(e.target.value)}
+                    required
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#4A2B50]" 
+                  />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Precio de Venta ($)</label>
-                  <input type="number" placeholder="Ej. 35" className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#4A2B50]" />
+                  <input 
+                    type="number" 
+                    placeholder="Ej. 35" 
+                    value={precio}
+                    onChange={(e) => setPrecio(e.target.value)}
+                    required
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#4A2B50]" 
+                  />
                 </div>
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Descripción que enamore</label>
-                <textarea rows="3" placeholder="Describe los sabores, la textura..." className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#4A2B50]"></textarea>
+                <textarea 
+                  rows="3" 
+                  placeholder="Describe los sabores, la textura..." 
+                  value={descripcion}
+                  onChange={(e) => setDescripcion(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#4A2B50]"
+                ></textarea>
               </div>
 
               <div className="grid md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Categoría Principal</label>
-                  <select className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#4A2B50]">
-                    <option>Alfajores</option>
-                    <option>Roscas</option>
-                    <option>Temporada</option>
+                  <select 
+                    value={categoria}
+                    onChange={(e) => setCategoria(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#4A2B50]"
+                  >
+                    <option value="Alfajores">Alfajores</option>
+                    <option value="Roscas">Roscas</option>
+                    <option value="Temporada">Temporada</option>
                   </select>
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Subcategoría / Presentación</label>
-                  <input type="text" placeholder="Ej. Individual, Docena, Mini..." className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#4A2B50]" />
+                  <input 
+                    type="text" 
+                    placeholder="Ej. Individual, Docena, Mini..." 
+                    value={subcategoria}
+                    onChange={(e) => setSubcategoria(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#4A2B50]" 
+                  />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Foto del Producto (URL o subir archivo)</label>
-                <div className="border-2 border-dashed border-slate-300 rounded-2xl p-6 text-center text-slate-500 hover:bg-slate-50 transition-colors cursor-pointer">
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Foto del Producto</label>
+                <div className="border-2 border-dashed border-slate-300 rounded-2xl p-6 text-center hover:bg-[#F5EEFD] transition-colors relative">
+                  <input 
+                    type="file" 
+                    accept="image/*"
+                    onChange={(e) => setImagen(e.target.files[0])}
+                    className="absolute inset-0 opacity-0 cursor-pointer"
+                  />
                   <i className="fa-solid fa-image text-3xl mb-2 text-slate-400"></i>
-                  <p className="text-sm font-medium">Toca para seleccionar una foto de tu tablet</p>
+                  <p className="text-sm font-medium text-slate-600">
+                    {imagen ? `📁 Seleccionado: ${imagen.name}` : 'Toca para seleccionar una foto de tu tablet'}
+                  </p>
+                  <p className="text-xs text-indigo-600 font-bold bg-indigo-50 inline-block px-3 py-1 rounded-full mt-2">
+                    Tip para Canva: Tamaño sugerido 800 x 800 px (Cuadrado)
+                  </p>
                 </div>
               </div>
 
               <div className="flex justify-end pt-4 border-t border-slate-100">
-                <button type="button" className="bg-[#4A2B50] hover:bg-opacity-90 text-white font-bold py-3 px-8 rounded-xl transition-transform active:scale-95">
-                  Guardar en el Menú
+                <button 
+                  type="submit" 
+                  disabled={cargando}
+                  className="bg-[#4A2B50] hover:bg-opacity-90 text-white font-bold py-3 px-8 rounded-xl transition-all shadow-md disabled:opacity-50 flex items-center gap-2"
+                >
+                  {cargando ? <i className="fa-solid fa-spinner animate-spin"></i> : <i className="fa-solid fa-cloud-arrow-up"></i>}
+                  {cargando ? 'Guardando en la nube...' : 'Guardar en el Menú'}
                 </button>
               </div>
             </form>
           </div>
         )}
 
-        {/* VISTA 3: Historial */}
         {seccionActiva === 'historial' && (
           <div>
             <h1 className="text-3xl font-serif font-bold text-[#4A2B50] mb-2">Historial de Ventas</h1>
@@ -172,7 +271,6 @@ function Admin() {
                     <td className="px-6 py-4">$840.00</td>
                     <td className="px-6 py-4"><span className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-xs font-bold">Entregado</span></td>
                   </tr>
-                  {/* Aquí se irán agregando las filas automáticamente */}
                 </tbody>
               </table>
             </div>
@@ -184,3 +282,4 @@ function Admin() {
 }
 
 export default Admin;
+

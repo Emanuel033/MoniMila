@@ -29,7 +29,6 @@ function App() {
             <Route path="/Admin" element={<Admin />} />
           </Routes>
         </main>
-        <Preguntas />
         {/* 3. El Footer va ABAJO de las Rutas */}
         <Footer />
 
