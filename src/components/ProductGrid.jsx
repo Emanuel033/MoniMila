@@ -1,111 +1,49 @@
 import React, { useState, useEffect } from 'react';
-import ProductCard from './ProductCard'; // Asegúrate de tener este archivo
-import { useApp } from '../context/AppContext';
+import { db } from '../firebase'; // Revisa que la ruta a tu firebase.js sea correcta
+import { collection, onSnapshot } from 'firebase/firestore';
+import ProductCard from './ProductCard'; // Asegúrate de que la ruta coincida
 
 function ProductGrid() {
-  const { productos, cargando, categoriaActiva, searchTerm, setSearchTerm } = useApp();
-  
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 12;
+  const [productos, setProductos] = useState([]);
+  const [cargando, setCargando] = useState(true);
 
+  // Escuchar en tiempo real los productos de Firebase
   useEffect(() => {
-    setCurrentPage(1);
-  }, [categoriaActiva, searchTerm]);
-
-  if (cargando) {
-    return (
-      <div className="col-span-full text-center py-12">
-        <div className="w-10 h-10 border-4 border-[#E8D8F8] border-t-[#4A2B50] rounded-full animate-spin mx-auto mb-4"></div>
-        <p className="text-slate-500 font-medium font-serif">Horneando menú...</p>
-      </div>
-    );
-  }
-
-  const termino = (searchTerm || '').toLowerCase().trim();
-  const catActiva = (categoriaActiva || 'Todos').toLowerCase().trim();
-  
-  let productosBase = (productos || []).filter(p => {
-    const categoriaProducto = (p.category || '').toLowerCase();
-    const nombreProducto = (p.name || '').toLowerCase();
-
-    const coincideCategoria = catActiva === 'todos' || categoriaProducto === catActiva;
-    const coincideBusqueda = termino === '' || nombreProducto.includes(termino);
+    const unsubscribe = onSnapshot(collection(db, "productos"), (snapshot) => {
+      const lista = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setProductos(lista);
+      setCargando(false);
+    });
     
-    return coincideCategoria && coincideBusqueda;
-  });
-
-  const productosFiltrados = productosBase.sort((a, b) => {
-    const nameA = a.name || '';
-    const nameB = b.name || '';
-    return nameA.localeCompare(nameB);
-  });
-
-  const totalPages = Math.ceil(productosFiltrados.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentProducts = productosFiltrados.slice(startIndex, endIndex);
-
-  const goToPage = (page) => {
-    setCurrentPage(page);
-    window.scrollTo({ top: 0, behavior: 'smooth' }); 
-  };
+    // Limpieza de seguridad
+    return () => unsubscribe();
+  }, []);
 
   return (
-    <div className="flex flex-col space-y-4">
-      
-      {productosFiltrados.length === 0 ? (
-        <div className="col-span-full flex flex-col items-center justify-center py-20 px-4">
-          <div className="w-20 h-20 bg-white shadow-sm rounded-full flex items-center justify-center mb-5">
-            <i className="fa-solid fa-cookie-bite text-3xl text-[#E8D8F8]"></i>
-          </div>
-          <h3 className="text-xl font-bold font-serif text-[#4A2B50] mb-2 text-center">
-            ¡Ups! No encontramos ese postre
-          </h3>
-          <p className="text-sm text-slate-500 max-w-md text-center mb-8">
-            No hay productos en "{categoriaActiva}" que coincidan con tu búsqueda.
-          </p>
-          
-          <button
-            onClick={() => {
-              setSearchTerm('');
-            }}
-            className="bg-[#F5EEFD] text-[#4A2B50] hover:bg-[#E8D8F8] px-6 py-3 rounded-xl font-bold transition-all flex items-center gap-2 shadow-sm"
-          >
-            <i className="fa-solid fa-eraser"></i> Limpiar búsqueda
-          </button>
+    <div className="w-full max-w-7xl mx-auto px-4 py-8">
+      {cargando ? (
+        // Pantalla de carga mientras trae los datos
+        <div className="flex flex-col items-center justify-center py-20 text-slate-500">
+          <i className="fa-solid fa-spinner animate-spin text-4xl mb-4 text-[#4A2B50]"></i>
+          <p className="font-medium text-lg">Horneando el catálogo...</p>
+        </div>
+      ) : productos.length === 0 ? (
+        // Por si borras todo y queda vacío
+        <div className="text-center py-20 bg-white rounded-3xl border border-slate-100 p-8 shadow-sm">
+          <i className="fa-solid fa-cookie-bite text-5xl text-slate-300 mb-4"></i>
+          <h3 className="font-bold text-[#4A2B50] text-xl">Aún no hay postres</h3>
+          <p className="text-slate-500 mt-2">Ve al panel de administrador para agregar tu primer producto.</p>
         </div>
       ) : (
-        <>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 px-2">
-            {currentProducts.map((prod) => (
-              <ProductCard key={prod.id} product={prod} />
-            ))}
-          </div>
-
-          {totalPages > 1 && (
-            <div className="flex justify-center items-center gap-3 mt-8 pb-8">
-              <button 
-                onClick={() => goToPage(currentPage - 1)}
-                disabled={currentPage === 1}
-                className="w-10 h-10 rounded-full border border-[#E8D8F8] flex items-center justify-center text-[#4A2B50] disabled:opacity-30 bg-white shadow-sm"
-              >
-                <i className="fa-solid fa-chevron-left"></i>
-              </button>
-              
-              <span className="text-sm font-bold text-slate-600 px-4 font-serif">
-                Página {currentPage} de {totalPages}
-              </span>
-
-              <button 
-                onClick={() => goToPage(currentPage + 1)}
-                disabled={currentPage === totalPages}
-                className="w-10 h-10 rounded-full border border-[#E8D8F8] flex items-center justify-center text-[#4A2B50] disabled:opacity-30 bg-white shadow-sm"
-              >
-                <i className="fa-solid fa-chevron-right"></i>
-              </button>
-            </div>
-          )}
-        </>
+        // Cuadrícula de productos dinámica
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+          {productos.map((prod) => (
+            <ProductCard key={prod.id} producto={prod} />
+          ))}
+        </div>
       )}
     </div>
   );
