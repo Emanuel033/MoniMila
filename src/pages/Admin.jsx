@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot } from 'firebase/firestore';
+import Cotizador from './Cotizador';
+
 
 function Admin() {
   const [seccionActiva, setSeccionActiva] = useState('catalogo');
@@ -157,6 +159,13 @@ function Admin() {
           >
             <i className="fa-solid fa-cake-candles w-5"></i> Gestión del Menú
           </button>
+          <button 
+  onClick={() => setSeccionActiva('cotizador')}
+  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${seccionActiva === 'cotizador' ? 'bg-white/20 font-bold' : 'hover:bg-white/10'}`}
+>
+  <i className="fa-solid fa-calculator w-5"></i> Cotizador Inteligente
+</button>
+
         </nav>
       </aside>
 
@@ -301,6 +310,10 @@ function Admin() {
 
           </div>
         )}
+        {seccionActiva === 'cotizador' && (
+  <Cotizador />
+)}
+
       </main>
     </div>
   );
