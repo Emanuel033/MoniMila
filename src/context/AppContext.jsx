@@ -1,4 +1,6 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
+import { db } from '../firebase'; // Importamos tu base de datos
+import { collection, onSnapshot } from 'firebase/firestore'; // Importamos las herramientas de escucha
 
 const AppContext = createContext();
 
@@ -25,29 +27,28 @@ export const AppProvider = ({ children }) => {
     localStorage.setItem('carrito_monimila', JSON.stringify(carrito));
   }, [carrito]);
 
-  // Cargar el catálogo (Asegúrate de tener un archivo catalogo.json en tu carpeta public)
+  // LA MAGIA: Cargar el catálogo desde FIREBASE en tiempo real
   useEffect(() => {
-    const fetchProductos = async () => {
-      try {
-        const response = await fetch('/catalogo.json');
-        if (!response.ok) throw new Error("Archivo JSON no encontrado");
-        
-        const productosData = await response.json();
-        
-        setProductos(productosData);
-        
-        // Extraer categorías únicas
-        let uniqueCats = [...new Set(productosData.map(p => p.category || 'Postres'))];
-        uniqueCats = uniqueCats.filter(c => c.toLowerCase() !== 'todos').sort();
-        setCategorias(['Todos', ...uniqueCats]);
-        
-        setCargando(false);
-      } catch (error) {
-        console.error("Error al cargar menú:", error);
-        setCargando(false);
-      }
-    };
-    fetchProductos();
+    const unsubscribe = onSnapshot(collection(db, "productos"), (snapshot) => {
+      const lista = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      setProductos(lista);
+      
+      // Extraer categorías únicas usando el campo "categoria" que guardamos desde el Admin
+      let uniqueCats = [...new Set(lista.map(p => p.categoria || 'Postres'))];
+      uniqueCats = uniqueCats.filter(c => c.toLowerCase() !== 'todos').sort();
+      
+      setCategorias(['Todos', ...uniqueCats]); // Actualiza tu CategoriesBar mágicamente
+      setCargando(false);
+    }, (error) => {
+      console.error("Error al cargar menú desde Firebase:", error);
+      setCargando(false);
+    });
+
+    return () => unsubscribe(); // Limpiamos la conexión si se cierra la app
   }, []);
 
   const seleccionarCategoria = (nuevaCategoria) => {
