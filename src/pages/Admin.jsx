@@ -1,46 +1,53 @@
 import React, { useState } from 'react';
-import { db, storage } from '../firebase'; // Importamos tu conexión
-import { collection, addDbDoc, addDoc } from 'firebase/firestore'; // Ojo: usamos addDoc
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db } from '../firebase';
+import { collection, addDoc } from 'firebase/firestore';
 
 function Admin() {
   const [modoPruebas, setModoPruebas] = useState(true);
   const [seccionActiva, setSeccionActiva] = useState('dashboard');
   
-  // Estados para el formulario de productos
+  // Estados para el formulario
   const [nombre, setNombre] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [precio, setPrecio] = useState('');
   const [categoria, setCategoria] = useState('Alfajores');
   const [subcategoria, setSubcategoria] = useState('');
-  const [imagen, setImagen] = useState(null);
+  const [imagenBase64, setImagenBase64] = useState(''); // Aquí guardaremos la imagen convertida
+  const [nombreArchivo, setNombreArchivo] = useState('');
   const [cargando, setCargando] = useState(false);
   const [mensajeExito, setMensajeExito] = useState('');
 
-  // Función para guardar el producto en Firebase
+  // Función para convertir la imagen del celular a Base64
+  const manejarImagen = (e) => {
+    const archivo = e.target.files[0];
+    if (archivo) {
+      setNombreArchivo(archivo.name);
+      const lector = new FileReader();
+      lector.onloadend = () => {
+        setImagenBase64(lector.result); // Esto convierte la foto en texto puro
+      };
+      lector.readAsDataURL(archivo);
+    }
+  };
+
   const guardarProducto = async (e) => {
     e.preventDefault();
-    if (!nombre || !precio || !imagen) {
-      alert("Por favor completa los campos obligatorios y selecciona una imagen.");
+    if (!nombre || !precio) {
+      alert("Por favor completa al menos el nombre y el precio.");
       return;
     }
 
     try {
       setCargando(true);
       
-      // 1. Subir la imagen a Firebase Storage
-      const storageRef = ref(storage, `productos/${Date.now()}_${imagen.name}`);
-      const snapshot = await uploadBytes(storageRef, imagen);
-      const urlImagen = await getDownloadURL(snapshot.ref);
-
-      // 2. Guardar los datos del producto en Firestore (Base de datos)
+      // Guardar en Firestore con la imagen convertida
       await addDoc(collection(db, "productos"), {
         nombre,
         descripcion,
         precio: parseFloat(precio),
         categoria,
         subcategoria,
-        imagen: urlImagen,
+        imagen: imagenBase64 || 'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=800',
         creado: new Date()
       });
 
@@ -52,7 +59,8 @@ function Admin() {
       setDescripcion('');
       setPrecio('');
       setSubcategoria('');
-      setImagen(null);
+      setImagenBase64('');
+      setNombreArchivo('');
 
       setTimeout(() => setMensajeExito(''), 4000);
 
@@ -139,11 +147,10 @@ function Admin() {
           </div>
         )}
 
-        {/* VISTA 2: Gestión del Menú (CRUD conectado a Firebase) */}
         {seccionActiva === 'catalogo' && (
           <div className="max-w-3xl">
             <h1 className="text-3xl font-serif font-bold text-[#4A2B50] mb-2">Agregar Nuevo Postre</h1>
-            <p className="text-slate-500 text-sm mb-6">Sube un nuevo producto al catálogo directamente a la nube.</p>
+            <p className="text-slate-500 text-sm mb-6">Sube un nuevo producto al catálogo seleccionando la foto desde tu dispositivo.</p>
             
             {mensajeExito && (
               <div className="mb-6 bg-emerald-100 border border-emerald-300 text-emerald-800 px-6 py-4 rounded-2xl font-bold flex items-center gap-3">
@@ -216,16 +223,16 @@ function Admin() {
 
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Foto del Producto</label>
-                <div className="border-2 border-dashed border-slate-300 rounded-2xl p-6 text-center hover:bg-[#F5EEFD] transition-colors relative">
+                <div className="border-2 border-dashed border-slate-300 rounded-2xl p-6 text-center hover:bg-[#F5EEFD] transition-colors relative cursor-pointer">
                   <input 
                     type="file" 
                     accept="image/*"
-                    onChange={(e) => setImagen(e.target.files[0])}
-                    className="absolute inset-0 opacity-0 cursor-pointer"
+                    onChange={manejarImagen}
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                   />
                   <i className="fa-solid fa-image text-3xl mb-2 text-slate-400"></i>
                   <p className="text-sm font-medium text-slate-600">
-                    {imagen ? `📁 Seleccionado: ${imagen.name}` : 'Toca para seleccionar una foto de tu tablet'}
+                    {nombreArchivo ? `📁 Foto seleccionada: ${nombreArchivo}` : 'Toca para seleccionar la foto desde tu celular o tablet'}
                   </p>
                   <p className="text-xs text-indigo-600 font-bold bg-indigo-50 inline-block px-3 py-1 rounded-full mt-2">
                     Tip para Canva: Tamaño sugerido 800 x 800 px (Cuadrado)
@@ -240,7 +247,7 @@ function Admin() {
                   className="bg-[#4A2B50] hover:bg-opacity-90 text-white font-bold py-3 px-8 rounded-xl transition-all shadow-md disabled:opacity-50 flex items-center gap-2"
                 >
                   {cargando ? <i className="fa-solid fa-spinner animate-spin"></i> : <i className="fa-solid fa-cloud-arrow-up"></i>}
-                  {cargando ? 'Guardando en la nube...' : 'Guardar en el Menú'}
+                  {cargando ? 'Guardando...' : 'Guardar en el Menú'}
                 </button>
               </div>
             </form>
