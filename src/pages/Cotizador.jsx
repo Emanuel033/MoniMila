@@ -27,6 +27,13 @@ function Cotizador() {
   const [productoSeleccionadoId, setProductoSeleccionadoId] = useState(''); 
   const [mensajeVinculacion, setMensajeVinculacion] = useState('');
 
+  // === NUEVO: ESTADO DE PRESENTACIONES / PAQUETES Y PRECIOS ===
+  const [presentaciones, setPresentaciones] = useState([
+    { id: 1, cantidad: 1, nombre: '1 Pieza', precioVenta: '' },
+    { id: 2, cantidad: 6, nombre: '6 Piezas (Media Docena)', precioVenta: '' },
+    { id: 3, cantidad: 12, nombre: '12 Piezas (Docena)', precioVenta: '' }
+  ]);
+
   const factorConversion = {
     unidad_base: 1, 
     taza_liquido: 250, 
@@ -143,22 +150,52 @@ function Cotizador() {
   const precioMediaDocena = precioPieza * 6;
   const precioDocena = precioPieza * 12;
 
+  // === FUNCIONES DE GESTIÓN DE PRESENTACIONES ===
+  const agregarPresentacion = () => {
+    setPresentaciones([...presentaciones, { id: Date.now(), cantidad: 1, nombre: '', precioVenta: '' }]);
+  };
+  const eliminarPresentacion = (id) => {
+    setPresentaciones(presentaciones.filter(p => p.id !== id));
+  };
+  const actualizarPresentacion = (id, campo, valor) => {
+    setPresentaciones(presentaciones.map(p => p.id === id ? { ...p, [campo]: valor } : p));
+  };
+
+  // === VINCULACIÓN INTELIGENTE (RECETA + PRESENTACIONES AL CATÁLOGO) ===
   const guardarRecetaEnProducto = async () => {
     if (!productoSeleccionadoId) {
       alert("Por favor selecciona a qué producto del menú pertenece esta receta.");
       return;
     }
 
+    const presentacionesValidas = presentaciones.filter(p => p.nombre && p.precioVenta !== '');
+    if (presentacionesValidas.length === 0) {
+      alert("Debes configurar al menos una presentación con su precio de venta.");
+      return;
+    }
+
     try {
+      // Formateamos las presentaciones para que el catálogo las lea directo
+      const presentacionesCatalogo = presentacionesValidas.map(p => ({
+        nombre: p.nombre,
+        precio: parseFloat(p.precioVenta),
+        cantidadPiezas: parseInt(p.cantidad) || 1 // Guardamos cuántas piezas trae este paquete para futuros pedidos
+      }));
+
+      // Buscamos el precio más económico para definir el "Precio Base / Desde" en la tarjeta principal
+      const precioBaseMinimo = Math.min(...presentacionesCatalogo.map(p => p.precio));
+
       const productoRef = doc(db, "productos", productoSeleccionadoId);
       await updateDoc(productoRef, {
-        recetaIngredientes: materialesReceta,
+        precio: precioBaseMinimo,
+        presentaciones: presentacionesCatalogo,
+        recetaIngredientes: materialesReceta, // Receta base intacta
         costoRealProduccion: costoPorPieza,
         precioSugerido: precioPieza,
-        piezasPorLote: piezasProducidas
+        piezasPorLote: piezasProducidas // <- ESTE ES EL SECRETO: El lote original (ej. 6 piezas) para calcular las proporciones exactas al restar stock después
       });
 
-      setMensajeVinculacion("¡Receta vinculada y guardada con éxito en el producto! 🔗✨");
+      setMensajeVinculacion("¡Receta, presentaciones y precios sincronizados con éxito en el producto! 🔗✨");
       setTimeout(() => setMensajeVinculacion(''), 4000);
     } catch (error) {
       console.error("Error al vincular:", error);
@@ -167,7 +204,7 @@ function Cotizador() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8">
+    <div className="max-w-7xl mx-auto px-4 py-8">
       
       <div className="text-center mb-8">
         <span className="text-xs font-bold tracking-widest text-[#4A2B50] uppercase bg-[#F5EEFD] px-4 py-1.5 rounded-full">Inteligencia Financiera & Producción</span>
@@ -183,7 +220,7 @@ function Cotizador() {
       <div className="grid lg:grid-cols-12 gap-8">
         
         {/* COLUMNA IZQUIERDA: ALACENA CON CRUD COMPLETO */}
-        <div className="lg:col-span-4 bg-slate-800 rounded-3xl p-6 text-white shadow-lg flex flex-col h-[850px]">
+        <div className="lg:col-span-4 bg-slate-800 rounded-3xl p-6 text-white shadow-lg flex flex-col h-[900px]">
           <div className="flex justify-between items-center mb-2">
             <h3 className="font-bold text-lg text-emerald-400"><i className="fa-solid fa-database mr-2"></i> Mi Alacena (BD)</h3>
             {editandoIngId && (
@@ -231,9 +268,10 @@ function Cotizador() {
           </div>
         </div>
 
-        {/* COLUMNA DERECHA: ARMADOR DE RECETA Y VINCULACIÓN */}
+        {/* COLUMNA DERECHA: ARMADOR DE RECETA, PRESENTACIONES Y VINCULACIÓN */}
         <div className="lg:col-span-8 space-y-6">
           
+          {/* Ficha técnica y VINCULACIÓN */}
           <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-4">
             <div className="grid md:grid-cols-2 gap-4">
               <div>
@@ -241,14 +279,15 @@ function Cotizador() {
                 <input type="text" value={nombreProducto} onChange={(e) => setNombreProducto(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#4A2B50]" />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Piezas que rinde este lote</label>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Piezas que rinde este lote (Base)</label>
                 <input type="number" min="1" value={piezasProducidas} onChange={(e) => setPiezasProducidas(parseInt(e.target.value) || 1)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#4A2B50]" />
               </div>
             </div>
 
+            {/* SECCIÓN DE VINCULACIÓN CON EL MENÚ */}
             <div className="pt-4 border-t border-slate-100 bg-[#F5EEFD]/40 p-4 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4">
               <div className="w-full md:w-auto flex-1">
-                <label className="block text-xs font-bold text-[#4A2B50] uppercase mb-1">Vincular receta con producto del Catálogo:</label>
+                <label className="block text-xs font-bold text-[#4A2B50] uppercase mb-1">Vincular receta y precios con producto del Catálogo:</label>
                 <select 
                   value={productoSeleccionadoId} 
                   onChange={(e) => setProductoSeleccionadoId(e.target.value)}
@@ -265,11 +304,12 @@ function Cotizador() {
                 onClick={guardarRecetaEnProducto}
                 className="w-full md:w-auto bg-[#4A2B50] hover:bg-opacity-90 text-white font-bold px-6 py-2.5 rounded-xl text-sm transition-all shadow-sm whitespace-nowrap mt-5 md:mt-0"
               >
-                <i className="fa-solid fa-link mr-2"></i> Guardar Receta en Producto
+                <i className="fa-solid fa-link mr-2"></i> Guardar Receta y Precios
               </button>
             </div>
           </div>
 
+          {/* Constructor de ingredientes */}
           <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
             <h3 className="font-serif font-bold text-lg text-[#4A2B50] mb-4">Ingredientes de esta Receta</h3>
             
@@ -316,6 +356,61 @@ function Cotizador() {
             </div>
           </div>
 
+          {/* NUEVO: CONFIGURADOR DE PRESENTACIONES Y PRECIOS FINALES */}
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <h3 className="font-serif font-bold text-lg text-[#4A2B50]">Presentaciones y Precios del Menú</h3>
+                <p className="text-xs text-slate-500">Define los paquetes que verá el cliente (1 pz, 6 pz, 12 pz, etc.)</p>
+              </div>
+              <button type="button" onClick={agregarPresentacion} className="text-xs font-bold bg-[#F5EEFD] text-[#4A2B50] px-3 py-2 rounded-xl hover:bg-[#eadeff]">
+                <i className="fa-solid fa-plus mr-1"></i> Agregar Paquete
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              {presentaciones.map((pres) => {
+                const cant = parseInt(pres.cantidad) || 1;
+                const costoPres = costoPorPieza * cant;
+                const sugeridoPres = costoPres * (1 + (margenGanancia / 100));
+
+                return (
+                  <div key={pres.id} className="flex gap-3 items-center bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                    <div className="w-24">
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase">Piezas que trae</label>
+                      <input type="number" min="1" value={pres.cantidad} onChange={(e) => actualizarPresentacion(pres.id, 'cantidad', e.target.value)} 
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-sm font-bold text-center text-[#4A2B50]" />
+                    </div>
+                    
+                    <div className="flex-1">
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase">Nombre para el cliente</label>
+                      <input type="text" placeholder="Ej. 6 Piezas (Media Docena)" value={pres.nombre} onChange={(e) => actualizarPresentacion(pres.id, 'nombre', e.target.value)} 
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-sm" />
+                    </div>
+
+                    <div className="w-32 text-right hidden sm:block">
+                      <span className="block text-[10px] text-slate-400 uppercase font-bold">Sugerido (${margenGanancia}%)</span>
+                      <span className="text-sm font-bold text-emerald-600">${sugeridoPres.toFixed(2)}</span>
+                    </div>
+
+                    <div className="w-32">
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase">Precio Final ($)</label>
+                      <input type="number" step="0.50" placeholder="0.00" value={pres.precioVenta} onChange={(e) => actualizarPresentacion(pres.id, 'precioVenta', e.target.value)} 
+                        className="w-full bg-white border-2 border-emerald-200 rounded-xl px-3 py-1.5 text-sm font-black text-slate-800" />
+                    </div>
+
+                    {presentaciones.length > 1 && (
+                      <button type="button" onClick={() => eliminarPresentacion(pres.id)} className="text-slate-300 hover:text-red-500 mt-4 px-1">
+                        <i className="fa-solid fa-trash"></i>
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* GANANCIA Y RESULTADOS */}
           <div className="grid md:grid-cols-2 gap-4">
             
             <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-center">
@@ -330,20 +425,20 @@ function Cotizador() {
               <i className="fa-solid fa-tags absolute -right-4 -bottom-4 text-6xl opacity-10"></i>
               
               <div className="mb-4 border-b border-white/20 pb-4">
-                <p className="text-xs text-[#E8D8F8] uppercase tracking-wider mb-1">Precio por Pieza</p>
+                <p className="text-xs text-[#E8D8F8] uppercase tracking-wider mb-1">Costo Base por 1 Pieza</p>
                 <div className="flex items-end gap-2">
-                  <span className="text-3xl font-black">${precioPieza.toFixed(2)}</span>
-                  <span className="text-sm opacity-70 mb-1">Costo real: ${costoPorPieza.toFixed(2)}</span>
+                  <span className="text-3xl font-black">${costoPorPieza.toFixed(2)}</span>
+                  <span className="text-sm opacity-70 mb-1">Lote de {piezasProducidas} pz</span>
                 </div>
               </div>
 
               <div className="flex justify-between items-center text-sm mb-2">
-                <span className="text-[#E8D8F8]">Media Docena (6)</span>
+                <span className="text-[#E8D8F8]">Sugerido Media Docena (6)</span>
                 <span className="font-bold">${precioMediaDocena.toFixed(2)}</span>
               </div>
               
               <div className="flex justify-between items-center text-sm font-bold">
-                <span className="text-emerald-300">Docena Completa (12)</span>
+                <span className="text-emerald-300">Sugerido Docena Completa (12)</span>
                 <span className="text-emerald-300">${precioDocena.toFixed(2)}</span>
               </div>
             </div>
@@ -357,3 +452,4 @@ function Cotizador() {
 }
 
 export default Cotizador;
+
