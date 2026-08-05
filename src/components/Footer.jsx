@@ -64,7 +64,7 @@ function Footer() {
               rel="noopener noreferrer"
               className="font-bold hover:text-white transition-colors duration-300"
             >
-              ennea Mirror
+              Ennea Mirror
             </a>
           </p>
         </div>

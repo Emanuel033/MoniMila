@@ -5,9 +5,9 @@ import { collection, addDoc, deleteDoc, doc, onSnapshot, updateDoc } from 'fireb
 function Cotizador() {
   // === ESTADOS DE LA BASE DE DATOS (INGREDIENTES Y PRODUCTOS) ===
   const [ingredientesDB, setIngredientesDB] = useState([]);
-  const [productosDB, setProductosDB] = useState([]); // <-- Para listar los productos del menú
+  const [productosDB, setProductosDB] = useState([]); 
   
-  // Estados para el formulario de la Alacena (Incluyendo el modo edición)
+  // Estados para el formulario de la Alacena
   const [editandoIngId, setEditandoIngId] = useState(null);
   const [nuevoIngNombre, setNuevoIngNombre] = useState('');
   const [nuevoIngCosto, setNuevoIngCosto] = useState('');
@@ -24,7 +24,7 @@ function Cotizador() {
   const [recetaMedida, setRecetaMedida] = useState('unidad_base'); 
   const [margenGanancia, setMargenGanancia] = useState(50);
   
-  const [productoSeleccionadoId, setProductoSeleccionadoId] = useState(''); // <-- ID del producto vinculado
+  const [productoSeleccionadoId, setProductoSeleccionadoId] = useState(''); 
   const [mensajeVinculacion, setMensajeVinculacion] = useState('');
 
   const factorConversion = {
@@ -37,15 +37,12 @@ function Cotizador() {
     cucharadita: 5 
   };
 
-  // 1. CARGAR INGREDIENTES Y PRODUCTOS DESDE FIREBASE
   useEffect(() => {
-    // Cargar Alacena
     const unsubIng = onSnapshot(collection(db, "ingredientes"), (snapshot) => {
       const lista = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setIngredientesDB(lista.sort((a, b) => a.nombre.localeCompare(b.nombre)));
     });
 
-    // Cargar Productos del Menú (para vincular)
     const unsubProd = onSnapshot(collection(db, "productos"), (snapshot) => {
       const lista = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setProductosDB(lista);
@@ -57,7 +54,6 @@ function Cotizador() {
     };
   }, []);
 
-  // CRUD DE ALACENA: CREAR O ACTUALIZAR INGREDIENTE
   const guardarIngredienteDB = async (e) => {
     e.preventDefault();
     if (!nuevoIngNombre || !nuevoIngCosto || !nuevoIngCantidad) return;
@@ -74,14 +70,11 @@ function Cotizador() {
       };
 
       if (editandoIngId) {
-        // Actualizar ingrediente existente
         await updateDoc(doc(db, "ingredientes", editandoIngId), datosIngrediente);
         setEditandoIngId(null);
       } else {
-        // Crear nuevo ingrediente
         await addDoc(collection(db, "ingredientes"), datosIngrediente);
       }
-
       limpiarFormularioIngrediente();
     } catch (error) { 
       console.error("Error al guardar ingrediente:", error);
@@ -89,7 +82,6 @@ function Cotizador() {
     }
   };
 
-  // PREPARAR EDICIÓN DE INGREDIENTE
   const prepararEdicionIngrediente = (ing) => {
     setEditandoIngId(ing.id);
     setNuevoIngNombre(ing.nombre);
@@ -98,7 +90,6 @@ function Cotizador() {
     setNuevoIngUnidad(ing.unidadBase);
   };
 
-  // LIMPIAR FORMULARIO DE ALACENA
   const limpiarFormularioIngrediente = () => {
     setEditandoIngId(null);
     setNuevoIngNombre(''); 
@@ -143,7 +134,6 @@ function Cotizador() {
     setMaterialesReceta(materialesReceta.filter(item => item.id !== id));
   };
 
-  // === FÓRMULAS MATEMÁTICAS ===
   const costoTotalInsumos = materialesReceta.reduce((total, item) => total + item.costo, 0);
   const piezasValidas = piezasProducidas > 0 ? piezasProducidas : 1;
   const costoPorPieza = costoTotalInsumos / piezasValidas;
@@ -153,7 +143,6 @@ function Cotizador() {
   const precioMediaDocena = precioPieza * 6;
   const precioDocena = precioPieza * 12;
 
-  // === VINCULAR RECETA AL PRODUCTO DEL MENÚ ===
   const guardarRecetaEnProducto = async () => {
     if (!productoSeleccionadoId) {
       alert("Por favor selecciona a qué producto del menú pertenece esta receta.");
@@ -197,12 +186,12 @@ function Cotizador() {
         <div className="lg:col-span-4 bg-slate-800 rounded-3xl p-6 text-white shadow-lg flex flex-col h-[850px]">
           <div className="flex justify-between items-center mb-2">
             <h3 className="font-bold text-lg text-emerald-400"><i className="fa-solid fa-database mr-2"></i> Mi Alacena (BD)</h3>
-            {editandoId && (
+            {editandoIngId && (
               <button onClick={limpiarFormularioIngrediente} className="text-xs text-amber-300 hover:underline">Cancelar edición</button>
             )}
           </div>
           <p className="text-xs text-slate-400 mb-4">
-            {editandoId ? '✏️ Editando ingrediente activo' : 'Registra costos de compra por gramo, ml o pieza.'}
+            {editandoIngId ? '✏️ Editando ingrediente activo' : 'Registra costos de compra por gramo, ml o pieza.'}
           </p>
 
           <form onSubmit={guardarIngredienteDB} className="space-y-3 mb-6 bg-slate-700/50 p-4 rounded-2xl border border-slate-700">
@@ -230,11 +219,9 @@ function Cotizador() {
                   <span className="text-[10px] font-mono text-emerald-400">${ing.costoPorUnidadBase.toFixed(4)}/{ing.unidadBase}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  {/* Botón de Editar */}
                   <button onClick={()=>prepararEdicionIngrediente(ing)} title="Editar ingrediente" className="text-slate-400 hover:text-amber-400 p-1.5 rounded-lg bg-slate-800/50 hover:bg-slate-800 transition-colors">
                     <i className="fa-solid fa-pen text-xs"></i>
                   </button>
-                  {/* Botón de Eliminar */}
                   <button onClick={()=>eliminarIngredienteDB(ing.id)} title="Eliminar ingrediente" className="text-slate-400 hover:text-red-400 p-1.5 rounded-lg bg-slate-800/50 hover:bg-slate-800 transition-colors">
                     <i className="fa-solid fa-trash text-xs"></i>
                   </button>
@@ -247,7 +234,6 @@ function Cotizador() {
         {/* COLUMNA DERECHA: ARMADOR DE RECETA Y VINCULACIÓN */}
         <div className="lg:col-span-8 space-y-6">
           
-          {/* Ficha técnica y VINCULACIÓN */}
           <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 space-y-4">
             <div className="grid md:grid-cols-2 gap-4">
               <div>
@@ -260,7 +246,6 @@ function Cotizador() {
               </div>
             </div>
 
-            {/* SECCIÓN DE VINCULACIÓN CON EL MENÚ */}
             <div className="pt-4 border-t border-slate-100 bg-[#F5EEFD]/40 p-4 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4">
               <div className="w-full md:w-auto flex-1">
                 <label className="block text-xs font-bold text-[#4A2B50] uppercase mb-1">Vincular receta con producto del Catálogo:</label>
@@ -285,7 +270,6 @@ function Cotizador() {
             </div>
           </div>
 
-          {/* Constructor de ingredientes */}
           <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
             <h3 className="font-serif font-bold text-lg text-[#4A2B50] mb-4">Ingredientes de esta Receta</h3>
             
@@ -332,7 +316,6 @@ function Cotizador() {
             </div>
           </div>
 
-          {/* GANANCIA Y RESULTADOS */}
           <div className="grid md:grid-cols-2 gap-4">
             
             <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-center">
