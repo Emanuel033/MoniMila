@@ -51,36 +51,49 @@ function Inicio() {
         </div>
       </section>
 
-      {/* Sección de Especialidades */}
+      {/* Sección de Especialidades Actualizada */}
       <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl font-bold font-serif text-[#4A2B50] mb-4">Nuestras Especialidades</h2>
-            <p className="text-slate-500">La fusión perfecta entre lo clásico y el cuidado en cada detalle.</p>
+            <p className="text-slate-500">La fusión perfecta entre lo clásico, el cuidado a tu salud y los detalles únicos.</p>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-8">
-            {/* Tarjeta Alfajores */}
-            <div className="bg-slate-50 rounded-3xl p-8 border border-slate-100 flex flex-col md:flex-row items-center gap-8 hover:shadow-md transition-shadow">
-              <div className="w-32 h-32 shrink-0 bg-[#F5EEFD] rounded-full flex items-center justify-center text-5xl text-[#4A2B50]">
+          <div className="grid md:grid-cols-3 gap-8">
+            
+            {/* 1. Tarjeta Alfajores */}
+            <div className="bg-slate-50 rounded-3xl p-8 border border-slate-100 flex flex-col items-center text-center hover:shadow-md transition-shadow">
+              <div className="w-24 h-24 mb-6 bg-[#F5EEFD] rounded-full flex items-center justify-center text-4xl text-[#4A2B50] shadow-inner">
                 <i className="fa-solid fa-cookie-bite"></i>
               </div>
-              <div className="text-center md:text-left">
-                <h3 className="text-xl font-bold text-[#4A2B50] mb-3">Alfajores Clásicos</h3>
-                <p className="text-slate-600 mb-4">Galletas que se deshacen en la boca, preparadas siguiendo la tradición familiar.</p>
-              </div>
+              <h3 className="text-xl font-bold text-[#4A2B50] mb-3">Alfajores Clásicos</h3>
+              <p className="text-slate-600">Galletas que se deshacen en la boca, preparadas siguiendo la tradición familiar con el toque perfecto de dulce de leche.</p>
             </div>
 
-            {/* Tarjeta Roscas y Figuras */}
-            <div className="bg-slate-50 rounded-3xl p-8 border border-slate-100 flex flex-col md:flex-row items-center gap-8 hover:shadow-md transition-shadow">
-              <div className="w-32 h-32 shrink-0 bg-[#F5EEFD] rounded-full flex items-center justify-center text-5xl text-[#4A2B50]">
+            {/* 2. Tarjeta Línea Saludable (Keto / Sin Azúcar) */}
+            <div className="bg-emerald-50/30 rounded-3xl p-8 border border-emerald-100 flex flex-col items-center text-center relative hover:shadow-md transition-shadow">
+              <span className="absolute -top-4 bg-emerald-100 text-emerald-800 text-xs font-bold px-4 py-1 rounded-full border border-emerald-200">
+                Sin Azúcar
+              </span>
+              <div className="w-24 h-24 mb-6 bg-emerald-100 rounded-full flex items-center justify-center text-4xl text-emerald-600 shadow-inner">
+                <i className="fa-solid fa-leaf"></i>
+              </div>
+              <h3 className="text-xl font-bold text-[#4A2B50] mb-3">Línea Saludable</h3>
+              <p className="text-slate-600">Pan de caja artesanal y donas keto. Opciones deliciosas, seguras y libres de azúcar, ideales para dietas especiales o personas con diabetes.</p>
+            </div>
+
+            {/* 3. Tarjeta Roscas y Temporada */}
+            <div className="bg-slate-50 rounded-3xl p-8 border border-slate-100 flex flex-col items-center text-center relative hover:shadow-md transition-shadow">
+              <span className="absolute -top-4 bg-amber-100 text-amber-800 text-xs font-bold px-4 py-1 rounded-full border border-amber-200">
+                ¡Próximamente!
+              </span>
+              <div className="w-24 h-24 mb-6 bg-[#F5EEFD] rounded-full flex items-center justify-center text-4xl text-[#4A2B50] shadow-inner">
                 <i className="fa-solid fa-crown"></i>
               </div>
-              <div className="text-center md:text-left">
-                <h3 className="text-xl font-bold text-[#4A2B50] mb-3">Roscas de Temporada</h3>
-                <p className="text-slate-600 mb-4">Receta tradicional con figuras temáticas de diseño exclusivo escondidas en su interior.</p>
-              </div>
+              <h3 className="text-xl font-bold text-[#4A2B50] mb-3">Ediciones de Temporada</h3>
+              <p className="text-slate-600">Roscas tradicionales con figuras temáticas de diseño exclusivo escondidas en su interior, y nuestro esperado Pan de Muerto.</p>
             </div>
+
           </div>
         </div>
       </section>
@@ -89,3 +102,4 @@ function Inicio() {
 }
 
 export default Inicio;
+
