@@ -7,6 +7,8 @@ function Cotizador() {
   const [ingredientesDB, setIngredientesDB] = useState([]);
   const [productosDB, setProductosDB] = useState([]); // <-- Para listar los productos del menú
   
+  // Estados para el formulario de la Alacena (Incluyendo el modo edición)
+  const [editandoIngId, setEditandoIngId] = useState(null);
   const [nuevoIngNombre, setNuevoIngNombre] = useState('');
   const [nuevoIngCosto, setNuevoIngCosto] = useState('');
   const [nuevoIngCantidad, setNuevoIngCantidad] = useState('');
@@ -55,24 +57,61 @@ function Cotizador() {
     };
   }, []);
 
+  // CRUD DE ALACENA: CREAR O ACTUALIZAR INGREDIENTE
   const guardarIngredienteDB = async (e) => {
     e.preventDefault();
     if (!nuevoIngNombre || !nuevoIngCosto || !nuevoIngCantidad) return;
+    
     const costoBase = parseFloat(nuevoIngCosto) / parseFloat(nuevoIngCantidad);
+    
     try {
-      await addDoc(collection(db, "ingredientes"), {
+      const datosIngrediente = {
         nombre: nuevoIngNombre,
         costoCompra: parseFloat(nuevoIngCosto),
         cantidadCompra: parseFloat(nuevoIngCantidad),
         unidadBase: nuevoIngUnidad,
         costoPorUnidadBase: costoBase
-      });
-      setNuevoIngNombre(''); setNuevoIngCosto(''); setNuevoIngCantidad('');
-    } catch (error) { alert("Error al guardar"); }
+      };
+
+      if (editandoIngId) {
+        // Actualizar ingrediente existente
+        await updateDoc(doc(db, "ingredientes", editandoIngId), datosIngrediente);
+        setEditandoIngId(null);
+      } else {
+        // Crear nuevo ingrediente
+        await addDoc(collection(db, "ingredientes"), datosIngrediente);
+      }
+
+      limpiarFormularioIngrediente();
+    } catch (error) { 
+      console.error("Error al guardar ingrediente:", error);
+      alert("Error al guardar en la alacena"); 
+    }
+  };
+
+  // PREPARAR EDICIÓN DE INGREDIENTE
+  const prepararEdicionIngrediente = (ing) => {
+    setEditandoIngId(ing.id);
+    setNuevoIngNombre(ing.nombre);
+    setNuevoIngCosto(ing.costoCompra);
+    setNuevoIngCantidad(ing.cantidadCompra);
+    setNuevoIngUnidad(ing.unidadBase);
+  };
+
+  // LIMPIAR FORMULARIO DE ALACENA
+  const limpiarFormularioIngrediente = () => {
+    setEditandoIngId(null);
+    setNuevoIngNombre(''); 
+    setNuevoIngCosto(''); 
+    setNuevoIngCantidad('');
+    setNuevoIngUnidad('g');
   };
 
   const eliminarIngredienteDB = async (id) => {
-    if (window.confirm("¿Borrar ingrediente?")) await deleteDoc(doc(db, "ingredientes", id));
+    if (window.confirm("¿Borrar ingrediente de la alacena?")) {
+      await deleteDoc(doc(db, "ingredientes", id));
+      if (editandoIngId === id) limpiarFormularioIngrediente();
+    }
   };
 
   const agregarALaReceta = (e) => {
@@ -90,7 +129,7 @@ function Cotizador() {
       ...materialesReceta,
       { 
         id: Date.now(), 
-        ingredienteId: ingSeleccionado.id, // Guardamos ID para el futuro control de stock
+        ingredienteId: ingSeleccionado.id, 
         nombre: `${recetaCantidad} ${etiquetaMedida} de ${ingSeleccionado.nombre}`, 
         costo: costoCalculado,
         cantidadUnidadBase: unidadesTotales 
@@ -114,7 +153,7 @@ function Cotizador() {
   const precioMediaDocena = precioPieza * 6;
   const precioDocena = precioPieza * 12;
 
-  // === MAGIA NUEVA: VINCULAR RECETA AL PRODUCTO DEL MENÚ ===
+  // === VINCULAR RECETA AL PRODUCTO DEL MENÚ ===
   const guardarRecetaEnProducto = async () => {
     if (!productoSeleccionadoId) {
       alert("Por favor selecciona a qué producto del menú pertenece esta receta.");
@@ -154,35 +193,51 @@ function Cotizador() {
 
       <div className="grid lg:grid-cols-12 gap-8">
         
-        {/* COLUMNA IZQUIERDA: ALACENA */}
-        <div className="lg:col-span-4 bg-slate-800 rounded-3xl p-6 text-white shadow-lg flex flex-col h-[800px]">
-          <h3 className="font-bold text-lg text-emerald-400 mb-4"><i className="fa-solid fa-database mr-2"></i> Mi Alacena (BD)</h3>
-          <p className="text-xs text-slate-400 mb-6">Registra costos de compra por gramo, ml o pieza.</p>
+        {/* COLUMNA IZQUIERDA: ALACENA CON CRUD COMPLETO */}
+        <div className="lg:col-span-4 bg-slate-800 rounded-3xl p-6 text-white shadow-lg flex flex-col h-[850px]">
+          <div className="flex justify-between items-center mb-2">
+            <h3 className="font-bold text-lg text-emerald-400"><i className="fa-solid fa-database mr-2"></i> Mi Alacena (BD)</h3>
+            {editandoId && (
+              <button onClick={limpiarFormularioIngrediente} className="text-xs text-amber-300 hover:underline">Cancelar edición</button>
+            )}
+          </div>
+          <p className="text-xs text-slate-400 mb-4">
+            {editandoId ? '✏️ Editando ingrediente activo' : 'Registra costos de compra por gramo, ml o pieza.'}
+          </p>
 
-          <form onSubmit={guardarIngredienteDB} className="space-y-3 mb-6 bg-slate-700/50 p-4 rounded-2xl">
-            <input type="text" placeholder="Nombre (ej. Harina, Azúcar)" value={nuevoIngNombre} onChange={(e)=>setNuevoIngNombre(e.target.value)} className="w-full bg-slate-900 border-none rounded-xl px-3 py-2 text-sm text-white" required />
+          <form onSubmit={guardarIngredienteDB} className="space-y-3 mb-6 bg-slate-700/50 p-4 rounded-2xl border border-slate-700">
+            <input type="text" placeholder="Nombre (ej. Harina, Azúcar)" value={nuevoIngNombre} onChange={(e)=>setNuevoIngNombre(e.target.value)} className="w-full bg-slate-900 border-none rounded-xl px-3 py-2 text-sm text-white focus:ring-2 focus:ring-emerald-500" required />
             <div className="grid grid-cols-2 gap-2">
-              <input type="number" placeholder="Costo ($)" value={nuevoIngCosto} onChange={(e)=>setNuevoIngCosto(e.target.value)} className="w-full bg-slate-900 border-none rounded-xl px-3 py-2 text-sm text-white" required />
-              <input type="number" placeholder="Trae (ej. 1000)" value={nuevoIngCantidad} onChange={(e)=>setNuevoIngCantidad(e.target.value)} className="w-full bg-slate-900 border-none rounded-xl px-3 py-2 text-sm text-white" required />
+              <input type="number" step="0.01" placeholder="Costo ($)" value={nuevoIngCosto} onChange={(e)=>setNuevoIngCosto(e.target.value)} className="w-full bg-slate-900 border-none rounded-xl px-3 py-2 text-sm text-white focus:ring-2 focus:ring-emerald-500" required />
+              <input type="number" step="0.01" placeholder="Trae (ej. 1000)" value={nuevoIngCantidad} onChange={(e)=>setNuevoIngCantidad(e.target.value)} className="w-full bg-slate-900 border-none rounded-xl px-3 py-2 text-sm text-white focus:ring-2 focus:ring-emerald-500" required />
             </div>
-            <select value={nuevoIngUnidad} onChange={(e)=>setNuevoIngUnidad(e.target.value)} className="w-full bg-slate-900 border-none rounded-xl px-3 py-2 text-sm text-white">
+            <select value={nuevoIngUnidad} onChange={(e)=>setNuevoIngUnidad(e.target.value)} className="w-full bg-slate-900 border-none rounded-xl px-3 py-2 text-sm text-white focus:ring-2 focus:ring-emerald-500">
               <option value="g">Gramos</option>
               <option value="ml">Mililitros</option>
               <option value="pz">Piezas</option>
             </select>
-            <button type="submit" className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 rounded-xl text-sm transition-colors">Guardar en Alacena</button>
+            <button type="submit" className={`w-full font-bold py-2.5 rounded-xl text-sm transition-colors shadow-sm ${editandoIngId ? 'bg-amber-500 hover:bg-amber-600 text-slate-950' : 'bg-emerald-500 hover:bg-emerald-600 text-white'}`}>
+              {editandoIngId ? 'Actualizar Ingrediente' : 'Guardar en Alacena'}
+            </button>
           </form>
 
           <div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
             {ingredientesDB.map(ing => (
-              <div key={ing.id} className="bg-slate-700 p-3 rounded-xl flex justify-between items-center group">
+              <div key={ing.id} className={`p-3 rounded-xl flex justify-between items-center group transition-colors ${editandoIngId === ing.id ? 'bg-slate-600 border border-amber-400' : 'bg-slate-700 hover:bg-slate-600'}`}>
                 <div>
                   <p className="text-sm font-bold">{ing.nombre}</p>
                   <p className="text-[10px] text-slate-400">${ing.costoCompra} x {ing.cantidadCompra}{ing.unidadBase}</p>
+                  <span className="text-[10px] font-mono text-emerald-400">${ing.costoPorUnidadBase.toFixed(4)}/{ing.unidadBase}</span>
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-xs font-mono text-emerald-400">${ing.costoPorUnidadBase.toFixed(4)}/{ing.unidadBase}</span>
-                  <button onClick={()=>eliminarIngredienteDB(ing.id)} className="text-slate-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"><i className="fa-solid fa-trash text-xs"></i></button>
+                <div className="flex items-center gap-2">
+                  {/* Botón de Editar */}
+                  <button onClick={()=>prepararEdicionIngrediente(ing)} title="Editar ingrediente" className="text-slate-400 hover:text-amber-400 p-1.5 rounded-lg bg-slate-800/50 hover:bg-slate-800 transition-colors">
+                    <i className="fa-solid fa-pen text-xs"></i>
+                  </button>
+                  {/* Botón de Eliminar */}
+                  <button onClick={()=>eliminarIngredienteDB(ing.id)} title="Eliminar ingrediente" className="text-slate-400 hover:text-red-400 p-1.5 rounded-lg bg-slate-800/50 hover:bg-slate-800 transition-colors">
+                    <i className="fa-solid fa-trash text-xs"></i>
+                  </button>
                 </div>
               </div>
             ))}

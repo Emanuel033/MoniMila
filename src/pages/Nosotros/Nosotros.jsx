@@ -49,7 +49,7 @@ function Nosotros() {
               </h2>
               <div className="space-y-4 text-slate-600 leading-relaxed">
                 <p>
-                  Monimila Bakery nació como un homenaje a las personas que sembraron en mí el amor por la cocina: mis abuelos, <strong className="text-[#4A2B50]">Manuel y Edelmira</strong>. A Manuel todos le decían "Moni" y a Edelmira, "Mila". De la unión de sus nombres surgió Monimila, un símbolo de sus enseñanzas, su cariño y el hermoso legado que dejaron en nuestra familia.
+                  Monimila Bakery nació como un homenaje a las personas que sembraron en mí el amor por la cocina: mis abuelos, <strong className="text-[#4A2B50]">Manuel y Edelmira</strong>. A Manuel todos le decíamos "Moni" y a Edelmira, "Mila". De la unión de sus nombres surgió Monimila, un símbolo de sus enseñanzas, su cariño y el hermoso legado que dejaron en nuestra familia.
                 </p>
                 <p>
                   Hace algunos años comencé este proyecto elaborando alfajores con la ilusión de crear postres que transmitieran emociones. Tras una pausa para dedicarme a mis estudios y prácticas profesionales, el deseo de regresar a la cocina nunca desapareció. Hoy, Monimila Bakery renace con más experiencia, nuevos sueños y el mismo amor de siempre por la repostería.

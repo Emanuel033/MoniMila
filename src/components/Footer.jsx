@@ -23,7 +23,8 @@ function Footer() {
               Fusionamos las recetas clásicas con detalles únicos. Nuestras creaciones de temporada, como las Roscas, esconden sorpresas temáticas de diseño exclusivo para que cada celebración sea inolvidable sin perder la calidez de lo hecho en casa.
             </p>
           </div>
-                    {/* Columna 3: Enlaces y Redes */}
+          
+          {/* Columna 3: Enlaces y Redes */}
           <div>
             <h4 className="text-lg font-bold text-white mb-4">Explora</h4>
             <ul className="space-y-2 mb-6 text-sm text-[#E8D8F8]">
@@ -34,7 +35,6 @@ function Footer() {
               <li><Link to="/preguntas" className="hover:text-white transition-colors">Ayuda y Envíos</Link></li>
             </ul>
 
-            
             {/* Íconos de Redes Sociales */}
             <div className="flex gap-4 text-xl">
               <a href="#" className="hover:text-[#E8D8F8] text-white transition-transform hover:scale-110">
@@ -51,9 +51,22 @@ function Footer() {
           
         </div>
         
-        {/* Copyright */}
-        <div className="border-t border-[#E8D8F8]/20 pt-8 text-center text-xs text-[#E8D8F8] opacity-60">
-          <p>&copy; {new Date().getFullYear()} MoniMila Bakery. Todos los derechos reservados.</p>
+        {/* Copyright y Firma del Desarrollador */}
+        <div className="border-t border-[#E8D8F8]/20 pt-8 text-center text-xs text-[#E8D8F8] flex flex-col gap-2 items-center">
+          <p className="opacity-60">&copy; {new Date().getFullYear()} MoniMila Bakery. Todos los derechos reservados.</p>
+          
+          {/* Firma ennea Mirror */}
+          <p className="opacity-40 hover:opacity-100 transition-opacity duration-500 flex items-center justify-center gap-1.5">
+            Creado con <i className="fa-solid fa-heart text-[10px]"></i> por 
+            <a 
+              href="#" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="font-bold hover:text-white transition-colors duration-300"
+            >
+              ennea Mirror
+            </a>
+          </p>
         </div>
       </div>
     </footer>
