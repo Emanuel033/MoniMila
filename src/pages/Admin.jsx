@@ -17,8 +17,10 @@ function Admin() {
   const [imagenBase64, setImagenBase64] = useState('');
   const [nombreArchivo, setNombreArchivo] = useState('');
 
-  // NUEVO: Modelo simplificado de Presentaciones (Ej. 1 pz, 6 pz, 12 pz)
-  const [presentaciones, setPresentaciones] = useState([{ nombre: '1 Pieza', precio: '' }]);
+  // Sincronizado con el Cotizador (nombre, precio, cantidad de piezas)
+  const [presentaciones, setPresentaciones] = useState([
+    { nombre: '1 Pieza', precio: '', cantidadPiezas: 1 }
+  ]);
 
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, "productos"), (snapshot) => {
@@ -59,7 +61,6 @@ function Admin() {
 
   const guardarProducto = async (e) => {
     e.preventDefault();
-    // Validar que al menos haya una presentación con precio
     if (!nombre || presentaciones.length === 0 || !presentaciones[0].precio) {
       alert("Por favor completa el nombre y al menos una presentación con su precio.");
       return;
@@ -68,18 +69,23 @@ function Admin() {
     try {
       setCargando(true);
       
-      // Calculamos el precio base automáticamente (el más barato) para mostrar en el catálogo "Desde $X"
-      const precios = presentaciones.map(p => parseFloat(p.precio) || 0);
+      const presentacionesValidas = presentaciones.map(p => ({
+        nombre: p.nombre || 'Presentación',
+        precio: parseFloat(p.precio) || 0,
+        cantidadPiezas: parseInt(p.cantidadPiezas) || 1
+      }));
+
+      const precios = presentacionesValidas.map(p => p.precio);
       const precioBaseMinimo = Math.min(...precios);
 
       const datosProducto = {
         nombre: nombre || '',
         descripcion: descripcion || '',
-        precio: precioBaseMinimo, // Precio de referencia
+        precio: precioBaseMinimo, // Precio "Desde" para el catálogo
         categoria: categoria || 'General',
         subcategoria: subcategoria || '',
         imagen: imagenBase64 || 'https://via.placeholder.com/800',
-        presentaciones: presentaciones, // Guardamos los paquetes exactos
+        presentaciones: presentacionesValidas,
         fechaModificacion: new Date()
       };
 
@@ -113,11 +119,15 @@ function Admin() {
     setCategoria(producto.categoria);
     setSubcategoria(producto.subcategoria);
     setImagenBase64(producto.imagen);
-    // Si el producto viejo tenía la variable "precio" pero no "presentaciones", lo adaptamos al vuelo
+    
     if (!producto.presentaciones || producto.presentaciones.length === 0) {
-      setPresentaciones([{ nombre: 'Única', precio: producto.precio || '' }]);
+      setPresentaciones([{ nombre: '1 Pieza', precio: producto.precio || '', cantidadPiezas: 1 }]);
     } else {
-      setPresentaciones(producto.presentaciones);
+      setPresentaciones(producto.presentaciones.map(p => ({
+        nombre: p.nombre || '',
+        precio: p.precio || '',
+        cantidadPiezas: p.cantidadPiezas || 1
+      })));
     }
     setNombreArchivo('Imagen existente cargada');
     window.scrollTo({ top: 0, behavior: 'smooth' }); 
@@ -131,12 +141,11 @@ function Admin() {
     setSubcategoria('');
     setImagenBase64('');
     setNombreArchivo('');
-    setPresentaciones([{ nombre: '1 Pieza', precio: '' }]);
+    setPresentaciones([{ nombre: '1 Pieza', precio: '', cantidadPiezas: 1 }]);
   };
 
-  // MANEJO DE PRESENTACIONES
   const agregarPresentacion = () => {
-    setPresentaciones([...presentaciones, { nombre: '', precio: '' }]);
+    setPresentaciones([...presentaciones, { nombre: '', precio: '', cantidadPiezas: 1 }]);
   };
 
   const actualizarPresentacion = (index, campo, valor) => {
@@ -201,7 +210,7 @@ function Admin() {
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Descripción</label>
-                    <textarea rows="2" value={descripcion} onChange={(e) => setDescripcion(e.target.value)} placeholder="Ej. Galletas rellenas de dulce de leche (Pueden ir con coco rayado)"
+                    <textarea rows="2" value={descripcion} onChange={(e) => setDescripcion(e.target.value)} placeholder="Ej. Galletas rellenas de dulce de leche"
                       className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#4A2B50]"></textarea>
                   </div>
                 </div>
@@ -225,35 +234,41 @@ function Admin() {
                   </div>
                 </div>
 
-                {/* === NUEVO: SECCIÓN DE PRESENTACIONES (PRECIOS CERRADOS) === */}
+                {/* SECCIÓN DE PRESENTACIONES COMPATIBLE */}
                 <div className="mt-8 border-t border-slate-200 pt-6">
                   <div className="flex justify-between items-center mb-4">
                     <div>
                       <h3 className="font-bold text-[#4A2B50] text-lg">Presentaciones y Precios</h3>
-                      <p className="text-xs text-slate-500">Agrega el precio exacto por unidad, docena, etc.</p>
+                      <p className="text-xs text-slate-500">Define las opciones (1 pz, 6 pz, 9 pz, 12 pz, etc.)</p>
                     </div>
+                    <button type="button" onClick={agregarPresentacion} className="text-xs font-bold bg-[#F5EEFD] text-[#4A2B50] px-3 py-2 rounded-xl hover:bg-[#eadeff]">
+                      <i className="fa-solid fa-plus mr-1"></i> Agregar Paquete
+                    </button>
                   </div>
 
                   <div className="space-y-3">
                     {presentaciones.map((pres, index) => (
-                      <div key={index} className="flex gap-4 items-center bg-white border border-[#4A2B50]/20 rounded-xl p-3 shadow-sm">
-                        <div className="flex-1">
-                          <input type="text" placeholder="Ej. 6 Piezas" value={pres.nombre} onChange={(e) => actualizarPresentacion(index, 'nombre', e.target.value)} required
-                            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[#4A2B50]" />
+                      <div key={index} className="flex gap-3 items-center bg-white border border-[#4A2B50]/20 rounded-xl p-3 shadow-sm">
+                        <div className="w-24">
+                          <label className="block text-[10px] font-bold text-slate-400 uppercase">Cant. piezas</label>
+                          <input type="number" min="1" value={pres.cantidadPiezas} onChange={(e) => actualizarPresentacion(index, 'cantidadPiezas', e.target.value)} required
+                            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-2 text-sm font-bold text-center" />
                         </div>
-                        <div className="w-32 flex items-center bg-slate-50 border border-slate-200 rounded-lg px-3">
-                          <span className="text-slate-400 font-bold">$</span>
-                          <input type="number" placeholder="0.00" value={pres.precio} onChange={(e) => actualizarPresentacion(index, 'precio', e.target.value)} required
-                            className="w-full py-2 px-2 text-sm outline-none bg-transparent" />
+                        <div className="flex-1">
+                          <label className="block text-[10px] font-bold text-slate-400 uppercase">Nombre presentación</label>
+                          <input type="text" placeholder="Ej. 9 Piezas" value={pres.nombre} onChange={(e) => actualizarPresentacion(index, 'nombre', e.target.value)} required
+                            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                        </div>
+                        <div className="w-32">
+                          <label className="block text-[10px] font-bold text-slate-400 uppercase">Precio ($)</label>
+                          <input type="number" step="0.50" placeholder="0.00" value={pres.precio} onChange={(e) => actualizarPresentacion(index, 'precio', e.target.value)} required
+                            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold" />
                         </div>
                         {presentaciones.length > 1 && (
-                          <button type="button" onClick={() => eliminarPresentacion(index)} className="text-slate-400 hover:text-red-500 px-2"><i className="fa-solid fa-trash"></i></button>
+                          <button type="button" onClick={() => eliminarPresentacion(index)} className="text-slate-300 hover:text-red-500 mt-4 px-1"><i className="fa-solid fa-trash"></i></button>
                         )}
                       </div>
                     ))}
-                    <button type="button" onClick={agregarPresentacion} className="text-sm font-bold text-[#4A2B50] mt-2 hover:underline">
-                      <i className="fa-solid fa-plus text-xs mr-1"></i> Agregar otro tamaño/paquete
-                    </button>
                   </div>
                 </div>
 
@@ -266,7 +281,7 @@ function Admin() {
               </form>
             </div>
 
-            {/* SECCIÓN 2: LA LISTA DE PRODUCTOS */}
+            {/* LISTA DE PRODUCTOS */}
             <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-100">
               <h2 className="text-xl font-bold text-[#4A2B50] mb-6">📦 Productos en el Menú ({productos.length})</h2>
               <div className="overflow-x-auto">
@@ -318,4 +333,3 @@ function Admin() {
 }
 
 export default Admin;
-
