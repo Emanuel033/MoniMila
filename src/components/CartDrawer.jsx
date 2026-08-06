@@ -4,7 +4,7 @@ import { useApp } from '../context/AppContext';
 function CartDrawer() {
   const { 
     isCartOpen, toggleCart, carrito, totalPiezas, clearCart,
-    agregarAlCarrito, quitarDelCarrito, eliminarProducto, productos 
+    agregarAlCarrito, quitarDelCarrito, eliminarProducto 
   } = useApp();
 
   const [clientName, setClientName] = useState('');
@@ -12,7 +12,6 @@ function CartDrawer() {
 
   // Lógica para enviar por WhatsApp
   const handleSendWhatsApp = () => {
-    // Aquí puedes poner el número de WhatsApp de MoniMila Bakery
     const numeroMoniMila = "525577937318"; 
     
     let textoMensaje = `Hola MoniMila Bakery 💜, soy ${clientName || 'un cliente'}.\nMe encantaría hacer el siguiente pedido:\n\n`;
@@ -20,10 +19,16 @@ function CartDrawer() {
     let totalPrecio = 0;
 
     carrito.forEach((item) => {
-      const prod = productos.find(p => p.id === item.id) || item;
-      const subtotal = prod.precio * item.cantidad;
+      // Usamos directamente el "item" que ya trae el precio de la presentación elegida
+      const subtotal = item.precio * item.cantidad;
       totalPrecio += subtotal;
-      textoMensaje += `- ${item.cantidad}x ${prod.name} ($${subtotal} MXN)\n`;
+      
+      // Agregamos la presentación al texto de WhatsApp si es que existe
+      const nombreCompleto = item.presentacionElegida 
+        ? `${item.nombre} (${item.presentacionElegida})` 
+        : item.nombre;
+
+      textoMensaje += `- ${item.cantidad}x ${nombreCompleto} ($${subtotal} MXN)\n`;
     });
     
     textoMensaje += `\n*Total estimado: $${totalPrecio} MXN*`;
@@ -69,25 +74,32 @@ function CartDrawer() {
             </div>
           ) : (
             <>
-              {carrito.map((item) => {
-                const prod = productos.find(p => p.id === item.id) || item;
+              {carrito.map((item, index) => {
+                // Combinamos el nombre base con la presentación elegida para mostrarlo en el carrito
+                const nombreAMostrar = item.presentacionElegida 
+                  ? `${item.nombre} - ${item.presentacionElegida}` 
+                  : item.nombre;
+
                 return (
-                  <div key={item.id} className="flex gap-3 p-3 bg-white rounded-2xl border border-slate-100 shadow-sm mb-3 relative">
+                  <div key={`${item.id}-${index}`} className="flex gap-3 p-3 bg-white rounded-2xl border border-slate-100 shadow-sm mb-3 relative">
                     <div className="h-16 w-16 shrink-0 rounded-lg bg-slate-50 p-1 flex items-center justify-center overflow-hidden">
-                      <img src={prod.image} alt={prod.name} className="h-full w-full object-cover rounded-md" onError={(e) => e.target.src='https://via.placeholder.com/60'} />
+                      {/* Corrección: ahora usa "item.imagen" */}
+                      <img src={item.imagen} alt={item.nombre} className="h-full w-full object-cover rounded-md" onError={(e) => e.target.src='https://via.placeholder.com/60'} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-start gap-2">
-                        <h4 className="text-sm font-bold text-slate-800 leading-snug line-clamp-2">{prod.name}</h4>
+                        {/* Corrección: ahora muestra el nombre con su presentación */}
+                        <h4 className="text-sm font-bold text-slate-800 leading-snug line-clamp-2">{nombreAMostrar}</h4>
                         <button onClick={() => eliminarProducto(item.id)} className="text-slate-300 hover:text-red-500 transition-colors p-1"><i className="fa-solid fa-trash-can"></i></button>
                       </div>
-                      <p className="text-xs text-[#4A2B50] font-bold mt-1">${prod.precio} MXN</p>
+                      <p className="text-xs text-[#4A2B50] font-bold mt-1">${item.precio} MXN</p>
                       
                       <div className="flex justify-end mt-2">
                         <div className="flex items-center gap-2 bg-slate-50 border rounded-lg px-3 py-1.5 w-32">
                           <button onClick={() => quitarDelCarrito(item.id)} className="px-2 text-slate-500 font-bold">-</button>
                           <span className="w-full text-center font-bold text-slate-800">{item.cantidad}</span>
-                          <button onClick={() => agregarAlCarrito(prod, 1)} className="px-2 text-[#4A2B50] font-bold">+</button>
+                          {/* Pasamos 'item' en lugar de 'prod' para no perder la presentación al sumar +1 */}
+                          <button onClick={() => agregarAlCarrito(item, 1)} className="px-2 text-[#4A2B50] font-bold">+</button>
                         </div>
                       </div>
                     </div>
