@@ -3,7 +3,7 @@
 
 User-agent: *
 Allow: /
-Disallow: /cotizador
+Disallow: /admin
 
 # Mapa del sitio
 Sitemap: https://monmilabakery.web.app/sitemap.xml
