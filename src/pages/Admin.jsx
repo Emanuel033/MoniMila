@@ -17,31 +17,10 @@ function Admin() {
   const [imagenBase64, setImagenBase64] = useState('');
   const [nombreArchivo, setNombreArchivo] = useState('');
 
-  // === PRESENTACIONES (paquetes con precios) ===
+  // === PRESENTACIONES — Se definen aquí y se complementan en Cotizador ===
   const [presentaciones, setPresentaciones] = useState([
     { nombre: '1 Pieza', precio: '', cantidadPiezas: 1 }
   ]);
-
-  // =============================================================
-  // 🆕 ESTADOS: Costos y receta — AHORA EDITABLES
-  // =============================================================
-  const [recetaIngredientes, setRecetaIngredientes] = useState([]);
-  const [costoRealProduccion, setCostoRealProduccion] = useState(0);
-  const [piezasPorLote, setPiezasPorLote] = useState(1);
-  const [margenGanancia, setMargenGanancia] = useState(50);
-  const [precioSugerido, setPrecioSugerido] = useState(0);
-
-  // =============================================================
-  // ⚡ CÁLCULO AUTOMÁTICO: Precio sugerido en tiempo real
-  // Se recalcula cada vez que cambia costo, lote o margen
-  // =============================================================
-  useEffect(() => {
-    const costoPorPieza = piezasPorLote > 0 && costoRealProduccion >= 0 
-      ? costoRealProduccion / piezasPorLote 
-      : 0;
-    const sugerido = costoPorPieza * (1 + margenGanancia / 100);
-    setPrecioSugerido(sugerido > 0 ? sugerido : 0);
-  }, [costoRealProduccion, piezasPorLote, margenGanancia]);
 
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, "productos"), (snapshot) => {
@@ -54,7 +33,6 @@ function Admin() {
     return () => unsubscribe();
   }, []);
 
-  // 📌 Ordenar productos alfabéticamente — useMemo evita recalcular en cada render
   const productosOrdenados = useMemo(() => 
     [...productos].sort((a, b) => (a.nombre || '').localeCompare(b.nombre || '')),
     [productos]
@@ -86,9 +64,6 @@ function Admin() {
     };
   };
 
-  // =============================================================
-  // 🛡️ VALIDACIONES MEJORADAS — mensaje exacto de lo que falta
-  // =============================================================
   const validarFormulario = () => {
     if (!nombre.trim()) {
       alert("⚠️ Escribe el nombre del producto");
@@ -96,14 +71,6 @@ function Admin() {
     }
     if (presentaciones.some(p => !p.precio || parseFloat(p.precio) <= 0)) {
       alert("⚠️ Todas las presentaciones deben tener un precio mayor a $0");
-      return false;
-    }
-    if (costoRealProduccion < 0) {
-      alert("⚠️ El costo de producción no puede ser negativo");
-      return false;
-    }
-    if (piezasPorLote < 1) {
-      alert("⚠️ Las piezas por lote deben ser al menos 1");
       return false;
     }
     return true;
@@ -122,8 +89,7 @@ function Admin() {
         cantidadPiezas: parseInt(p.cantidadPiezas) || 1
       }));
 
-      const precios = presentacionesValidas.map(p => p.precio);
-      const precioBaseMinimo = Math.min(...precios);
+      const precioBaseMinimo = Math.min(...presentacionesValidas.map(p => p.precio));
 
       const datosProducto = {
         nombre: nombre.trim(),
@@ -133,42 +99,32 @@ function Admin() {
         subcategoria: subcategoria || '',
         imagen: imagenBase64 || 'https://via.placeholder.com/800',
         presentaciones: presentacionesValidas,
-        
-        recetaIngredientes: recetaIngredientes || [],
-        costoRealProduccion: parseFloat(costoRealProduccion) || 0,
-        piezasPorLote: parseInt(piezasPorLote) || 1,
-        margenGanancia: parseInt(margenGanancia) || 50,
-        precioSugerido: parseFloat(precioSugerido) || 0,
-        
         fechaModificacion: new Date()
       };
 
       if (editandoId) {
         await updateDoc(doc(db, "productos", editandoId), datosProducto);
-        setMensaje("¡Postre actualizado correctamente! ✏️");
+        setMensaje("¡Producto actualizado! ✏️ Ahora ve al Cotizador para definir su receta y costos.");
       } else {
         datosProducto.fechaCreacion = new Date();
         await addDoc(collection(db, "productos"), datosProducto);
-        setMensaje("¡Nuevo postre agregado al menú! 🎉");
+        setMensaje("¡Producto agregado! 🎉 Ahora ve al Cotizador para calcular costos y receta.");
       }
       limpiarFormulario();
     } catch (error) {
-      alert("Hubo un error al guardar: " + error.message);
+      alert("Error al guardar: " + error.message);
     } finally {
       setCargando(false);
-      setTimeout(() => setMensaje(''), 4000);
+      setTimeout(() => setMensaje(''), 5000);
     }
   };
 
   const eliminarProducto = async (id) => {
-    if (window.confirm("¿Estás seguro de que quieres eliminar este postre?")) {
+    if (window.confirm("¿Eliminar este producto?")) {
       await deleteDoc(doc(db, "productos", id));
     }
   };
 
-  // =============================================================
-  // 📥 CARGAR PRODUCTO PARA EDITAR — TODO incluido costos y receta
-  // =============================================================
   const prepararEdicion = (producto) => {
     setEditandoId(producto.id);
     setNombre(producto.nombre || '');
@@ -187,12 +143,6 @@ function Admin() {
       })));
     }
 
-    setRecetaIngredientes(producto.recetaIngredientes || []);
-    setCostoRealProduccion(producto.costoRealProduccion ?? 0);
-    setPiezasPorLote(producto.piezasPorLote ?? 1);
-    setMargenGanancia(producto.margenGanancia ?? 50);
-    setPrecioSugerido(producto.precioSugerido ?? 0);
-
     setNombreArchivo('Imagen existente cargada');
     window.scrollTo({ top: 0, behavior: 'smooth' }); 
   };
@@ -206,12 +156,6 @@ function Admin() {
     setImagenBase64('');
     setNombreArchivo('');
     setPresentaciones([{ nombre: '1 Pieza', precio: '', cantidadPiezas: 1 }]);
-    
-    setRecetaIngredientes([]);
-    setCostoRealProduccion(0);
-    setPiezasPorLote(1);
-    setMargenGanancia(50);
-    setPrecioSugerido(0);
   };
 
   const agregarPresentacion = () => {
@@ -240,10 +184,10 @@ function Admin() {
         </div>
         <nav className="flex-1 px-4 py-6 space-y-2">
           <button onClick={() => setSeccionActiva('catalogo')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${seccionActiva === 'catalogo' ? 'bg-white/20 font-bold' : 'hover:bg-white/10'}`}>
-            <i className="fa-solid fa-cake-candles w-5"></i> Gestión del Menú
+            <i className="fa-solid fa-cake-candles w-5"></i> Catálogo
           </button>
           <button onClick={() => setSeccionActiva('cotizador')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${seccionActiva === 'cotizador' ? 'bg-white/20 font-bold' : 'hover:bg-white/10'}`}>
-            <i className="fa-solid fa-calculator w-5"></i> Cotizador Inteligente
+            <i className="fa-solid fa-calculator w-5"></i> Cotizador & Receta
           </button>
         </nav>
       </aside>
@@ -252,14 +196,17 @@ function Admin() {
         {seccionActiva === 'catalogo' && (
           <div className="max-w-5xl mx-auto space-y-8">
             
-            {/* 🆕 Borde diferente al editar — resalta el modo */}
             <div className={`bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 transition-colors ${editandoId ? 'border-amber-400' : 'border-slate-100'}`}>
               <div className="flex justify-between items-center mb-6">
                 <div>
                   <h1 className="text-2xl font-serif font-bold text-[#4A2B50]">
-                    {editandoId ? '✏️ Editando Postre' : '✨ Agregar Nuevo Postre'}
+                    {editandoId ? '✏️ Editar Producto' : '✨ Nuevo Producto'}
                   </h1>
-                  <p className="text-slate-500 text-sm mt-1">Sube el postre y define los precios exactos por presentación.</p>
+                  <p className="text-slate-500 text-sm mt-1">
+                    {editandoId 
+                      ? "Modifica los datos del producto. Los costos y receta se manejan en el Cotizador." 
+                      : "Registra el producto. Luego ve al Cotizador para definir su receta y costos."}
+                  </p>
                 </div>
                 {editandoId && (
                   <button onClick={limpiarFormulario} className="text-sm bg-slate-100 text-slate-600 px-4 py-2 rounded-lg font-bold hover:bg-slate-200">Cancelar</button>
@@ -276,7 +223,7 @@ function Admin() {
                 <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-4">
                   <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nombre del Producto *</label>
-                    <input type="text" value={nombre} onChange={(e) => setNombre(e.target.value)} required placeholder="Ej. Alfajores Clásicos (Dulce de Leche)"
+                    <input type="text" value={nombre} onChange={(e) => setNombre(e.target.value)} required placeholder="Ej. Alfajores Clásicos"
                       className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#4A2B50]" />
                   </div>
                   <div>
@@ -297,10 +244,9 @@ function Admin() {
                     <input type="text" value={subcategoria} onChange={(e) => setSubcategoria(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#4A2B50]" />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Foto Principal</label>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Foto</label>
                     <div className="border-2 border-dashed border-slate-300 rounded-xl p-2 text-center relative cursor-pointer flex items-center justify-center bg-slate-50 overflow-hidden h-[46px]">
                       <input type="file" accept="image/*" onChange={manejarImagen} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" />
-                      {/* 🆕 Previsualización de imagen */}
                       {imagenBase64 ? (
                         <div className="flex items-center gap-2">
                           <img src={imagenBase64} alt="Vista previa" className="w-8 h-8 object-cover rounded-lg" />
@@ -311,48 +257,11 @@ function Admin() {
                   </div>
                 </div>
 
-                {/* 🆕 SECCIÓN DE COSTOS — AHORA EDITABLE DIRECTAMENTE */}
-                <div className="bg-[#F5EEFD]/50 p-4 rounded-2xl border border-[#4A2B50]/20 space-y-4">
-                  <h3 className="font-bold text-[#4A2B50] text-sm flex items-center gap-2">
-                    <i className="fa-solid fa-calculator"></i> Costos y Configuración
-                  </h3>
-                  <div className="grid md:grid-cols-4 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Costo Total Lote ($)</label>
-                      <input type="number" step="0.01" min="0" value={costoRealProduccion || ''} 
-                        onChange={(e) => setCostoRealProduccion(parseFloat(e.target.value) || 0)}
-                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-[#4A2B50] focus:outline-none focus:border-[#4A2B50]" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Piezas por Lote</label>
-                      <input type="number" min="1" value={piezasPorLote} 
-                        onChange={(e) => setPiezasPorLote(parseInt(e.target.value) || 1)}
-                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-[#4A2B50] focus:outline-none focus:border-[#4A2B50]" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Margen de Ganancia (%)</label>
-                      <input type="number" min="1" max="500" value={margenGanancia} 
-                        onChange={(e) => setMargenGanancia(parseInt(e.target.value) || 50)}
-                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-[#4A2B50] focus:outline-none focus:border-[#4A2B50]" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Precio Sugerido</label>
-                      <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2 text-sm font-bold text-emerald-600 text-center">
-                        ${precioSugerido.toFixed(2)}
-                      </div>
-                    </div>
-                  </div>
-                  <p className="text-xs text-slate-500">
-                    <i className="fa-solid fa-info-circle mr-1"></i> El precio sugerido se calcula automáticamente. Para definir la receta detallada, usa el Cotizador Inteligente.
-                  </p>
-                </div>
-
-                {/* SECCIÓN DE PRESENTACIONES */}
-                <div className="mt-8 border-t border-slate-200 pt-6">
+                <div className="mt-4 border-t border-slate-200 pt-6">
                   <div className="flex justify-between items-center mb-4">
                     <div>
-                      <h3 className="font-bold text-[#4A2B50] text-lg">Presentaciones y Precios</h3>
-                      <p className="text-xs text-slate-500">Define las opciones (1 pz, 6 pz, 9 pz, 12 pz, etc.)</p>
+                      <h3 className="font-bold text-[#4A2B50] text-lg">Precios al Público</h3>
+                      <p className="text-xs text-slate-500">Define los paquetes y precios de venta</p>
                     </div>
                     <button type="button" onClick={agregarPresentacion} className="text-xs font-bold bg-[#F5EEFD] text-[#4A2B50] px-3 py-2 rounded-xl hover:bg-[#eadeff]">
                       <i className="fa-solid fa-plus mr-1"></i> Agregar Paquete
@@ -361,15 +270,15 @@ function Admin() {
 
                   <div className="space-y-3">
                     {presentaciones.map((pres, index) => (
-                      <div key={index} className="flex gap-3 items-center bg-white border border-[#4A2B50]/20 rounded-xl p-3 shadow-sm">
+                      <div key={index} className="flex gap-3 items-center bg-white border border-slate-200 rounded-xl p-3">
                         <div className="w-24">
-                          <label className="block text-[10px] font-bold text-slate-400 uppercase">Cant. piezas</label>
+                          <label className="block text-[10px] font-bold text-slate-400 uppercase">Piezas</label>
                           <input type="number" min="1" value={pres.cantidadPiezas} onChange={(e) => actualizarPresentacion(index, 'cantidadPiezas', e.target.value)} required
                             className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-2 text-sm font-bold text-center" />
                         </div>
                         <div className="flex-1">
-                          <label className="block text-[10px] font-bold text-slate-400 uppercase">Nombre presentación</label>
-                          <input type="text" placeholder="Ej. 9 Piezas" value={pres.nombre} onChange={(e) => actualizarPresentacion(index, 'nombre', e.target.value)} required
+                          <label className="block text-[10px] font-bold text-slate-400 uppercase">Nombre</label>
+                          <input type="text" placeholder="Ej. 6 Piezas" value={pres.nombre} onChange={(e) => actualizarPresentacion(index, 'nombre', e.target.value)} required
                             className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
                         </div>
                         <div className="w-32">
@@ -385,56 +294,53 @@ function Admin() {
                   </div>
                 </div>
 
-                <div className="flex justify-end pt-6 border-t border-slate-100">
-                  <button type="submit" disabled={cargando} className="bg-[#4A2B50] hover:bg-opacity-90 text-white font-bold py-3 px-8 rounded-xl transition-all shadow-md disabled:opacity-50 flex items-center gap-2 text-lg w-full md:w-auto justify-center">
+                <div className="flex justify-between items-center pt-6 border-t border-slate-100">
+                  <p className="text-sm text-slate-500">
+                    <i className="fa-solid fa-calculator mr-1 text-[#4A2B50]"></i>
+                    ¿Necesitas calcular costos y receta? → Ve al <strong onClick={() => setSeccionActiva('cotizador')} className="text-[#4A2B50] cursor-pointer hover:underline">Cotizador</strong>
+                  </p>
+                  <button type="submit" disabled={cargando} className="bg-[#4A2B50] hover:bg-opacity-90 text-white font-bold py-3 px-8 rounded-xl transition-all shadow-md disabled:opacity-50 flex items-center gap-2">
                     {cargando ? <i className="fa-solid fa-spinner animate-spin"></i> : <i className="fa-solid fa-cloud-arrow-up"></i>}
-                    {editandoId ? 'Actualizar Producto' : 'Guardar en Catálogo'}
+                    {editandoId ? 'Actualizar' : 'Guardar Producto'}
                   </button>
                 </div>
               </form>
             </div>
 
-            {/* LISTA DE PRODUCTOS — con colores y orden alfabético */}
-            <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-100">
-              <h2 className="text-xl font-bold text-[#4A2B50] mb-6">📦 Productos en el Menú ({productosOrdenados.length})</h2>
+            <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100">
+              <h2 className="text-xl font-bold text-[#4A2B50] mb-6">📦 Productos ({productosOrdenados.length})</h2>
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm text-slate-600 min-w-[600px]">
+                <table className="w-full text-left text-sm min-w-[600px]">
                   <thead className="bg-slate-50 border-b border-slate-200 text-xs uppercase font-bold text-slate-500">
                     <tr>
                       <th className="px-4 py-3 rounded-tl-xl">Foto</th>
                       <th className="px-4 py-3">Nombre</th>
-                      <th className="px-4 py-3">Precio Desde</th>
-                      <th className="px-4 py-3">Costo Producción</th>
-                      <th className="px-4 py-3">Opciones</th>
+                      <th className="px-4 py-3">Precio</th>
+                      <th className="px-4 py-3">Receta</th>
                       <th className="px-4 py-3 rounded-tr-xl text-right">Acciones</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {productosOrdenados.length === 0 ? (
-                      <tr><td colSpan="6" className="px-4 py-8 text-center text-slate-400">No hay productos guardados aún.</td></tr>
+                      <tr><td colSpan="4" className="px-4 py-8 text-center text-slate-400">
+                        No hay productos aún. Crea el primero arriba 👆
+                      </td></tr>
                     ) : (
                       productosOrdenados.map((prod) => (
-                        <tr key={prod.id} className="hover:bg-slate-50 transition-colors">
-                          <td className="px-4 py-3"><img src={prod.imagen} alt={prod.nombre} className="w-12 h-12 object-cover rounded-lg shadow-sm border border-slate-200" /></td>
-                          <td className="px-4 py-3 font-medium text-slate-800">{prod.nombre}</td>
+                        <tr key={prod.id} className="hover:bg-slate-50">
+                          <td className="px-4 py-3"><img src={prod.imagen} alt={prod.nombre} className="w-12 h-12 object-cover rounded-lg" /></td>
+                          <td className="px-4 py-3 font-medium">{prod.nombre}</td>
                           <td className="px-4 py-3 font-bold text-emerald-600">${prod.precio}</td>
-                          <td className="px-4 py-3 text-sm font-mono">
-                            {prod.costoRealProduccion ? (
-                              <span className="text-blue-600">${prod.costoRealProduccion.toFixed(2)}</span>
-                            ) : (
-                              <span className="text-slate-300">— Sin dato</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-xs">
-                            <span className="bg-[#F5EEFD] text-[#4A2B50] px-2 py-1 rounded font-bold">
-                              {prod.presentaciones ? prod.presentaciones.length : 1} pres.
-                            </span>
+                          <td className="px-4 py-3">
+                            {prod.recetaIngredientes?.length > 0 
+                              ? <span className="text-emerald-600 text-sm">✅ {prod.recetaIngredientes.length} ingredientes</span>
+                              : <span className="text-slate-400 text-sm">Sin receta</span>}
                           </td>
                           <td className="px-4 py-3 text-right space-x-2">
-                            <button onClick={() => prepararEdicion(prod)} className="w-8 h-8 rounded-full bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors" title="Editar">
+                            <button onClick={() => prepararEdicion(prod)} className="w-8 h-8 rounded-full bg-indigo-50 text-indigo-600 hover:bg-indigo-100">
                               <i className="fa-solid fa-pen"></i>
                             </button>
-                            <button onClick={() => eliminarProducto(prod.id)} className="w-8 h-8 rounded-full bg-red-50 text-red-600 hover:bg-red-100 transition-colors" title="Eliminar">
+                            <button onClick={() => eliminarProducto(prod.id)} className="w-8 h-8 rounded-full bg-red-50 text-red-600 hover:bg-red-100">
                               <i className="fa-solid fa-trash"></i>
                             </button>
                           </td>
@@ -449,13 +355,10 @@ function Admin() {
           </div>
         )}
         
-        {seccionActiva === 'cotizador' && (
-          <Cotizador />
-        )}
+        {seccionActiva === 'cotizador' && <Cotizador />}
       </main>
     </div>
   );
 }
 
 export default Admin;
-
