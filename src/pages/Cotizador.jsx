@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
-import { collection, addDoc, deleteDoc, doc, onSnapshot, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, deleteDoc, doc, getDocs, onSnapshot, updateDoc } from 'firebase/firestore';
 
 function Cotizador() {
   const [ingredientesDB, setIngredientesDB] = useState([]);
   const [productosDB, setProductosDB] = useState([]); 
   
   const [editandoIngId, setEditandoIngId] = useState(null);
+  const [ingAnterior, setIngAnterior] = useState(null); // ← guarda datos antes de editar
   const [nuevoIngNombre, setNuevoIngNombre] = useState('');
   const [nuevoIngCosto, setNuevoIngCosto] = useState('');
   const [nuevoIngCantidad, setNuevoIngCantidad] = useState('');
@@ -19,6 +20,7 @@ function Cotizador() {
   const [margenGanancia, setMargenGanancia] = useState(50);
   const [presentaciones, setPresentaciones] = useState([]);
   const [mensaje, setMensaje] = useState('');
+  const [alertaImpacto, setAlertaImpacto] = useState(null); // ← alerta de productos afectados
 
   const [recetaIngId, setRecetaIngId] = useState('');
   const [recetaCantidad, setRecetaCantidad] = useState('');
@@ -30,7 +32,7 @@ function Cotizador() {
   };
 
   // =============================================================
-  // 🔄 CARGAR PRODUCTO SELECCIONADO — TODO aquí
+  // 🔄 CARGAR PRODUCTO SELECCIONADO
   // =============================================================
   useEffect(() => {
     if (!productoSeleccionadoId) {
@@ -77,30 +79,107 @@ function Cotizador() {
     return () => { unsubIng(); unsubProd(); };
   }, []);
 
-  // CRUD Alacena
+  // =============================================================
+  // 🧮 RECALCULAR COSTO DINÁMICO
+  // =============================================================
+  const costoTotal = materialesReceta.reduce((sum, item) => {
+    const ingActual = ingredientesDB.find(i => i.id === item.ingredienteId);
+    if (!ingActual) return sum;
+    return sum + (item.cantidadUnidadBase * ingActual.costoPorUnidadBase);
+  }, 0);
+
+  const costoPorPieza = piezasProducidas > 0 ? costoTotal / piezasProducidas : 0;
+  const precioPieza = costoPorPieza * (1 + margenGanancia / 100);
+
+  // =============================================================
+  // 📊 CALCULAR IMPACTO AL CAMBIAR INGREDIENTE
+  // =============================================================
+  const calcularImpacto = (ingredienteId, costoAnterior, costoNuevo) => {
+    if (costoAnterior === costoNuevo) return [];
+    const diferenciaPorUnidad = costoNuevo - costoAnterior;
+    const porcentajeCambio = ((costoNuevo - costoAnterior) / costoAnterior) * 100;
+
+    return productosDB.filter(prod => 
+      prod.recetaIngredientes?.some(item => item.ingredienteId === ingredienteId)
+    ).map(prod => {
+      const uso = prod.recetaIngredientes.find(item => item.ingredienteId === ingredienteId);
+      const cantidadUsada = uso.cantidadUnidadBase;
+      const impactoPorLote = cantidadUsada * diferenciaPorUnidad;
+      const piezas = prod.piezasPorLote || 1;
+      const impactoPorPieza = impactoPorLote / piezas;
+      const costoAnteriorProd = prod.costoRealProduccion || 0;
+      const costoNuevoProd = costoAnteriorProd + impactoPorPieza;
+
+      return {
+        nombre: prod.nombre,
+        impactoPorPieza,
+        costoAnterior: costoAnteriorProd,
+        costoNuevo: costoNuevoProd,
+        porcentajeCambio: costoAnteriorProd > 0 
+          ? ((costoNuevoProd - costoAnteriorProd) / costoAnteriorProd) * 100 
+          : 0
+      };
+    });
+  };
+
+  // =============================================================
+  // 💾 GUARDAR INGREDIENTE CON ALERTA DE IMPACTO
+  // =============================================================
   const guardarIngredienteDB = async (e) => {
     e.preventDefault();
     if (!nuevoIngNombre || !nuevoIngCosto || !nuevoIngCantidad) return;
-    const costoBase = parseFloat(nuevoIngCosto) / parseFloat(nuevoIngCantidad);
+
+    const costoNuevo = parseFloat(nuevoIngCosto) / parseFloat(nuevoIngCantidad);
+    const datos = { 
+      nombre: nuevoIngNombre, 
+      costoCompra: parseFloat(nuevoIngCosto), 
+      cantidadCompra: parseFloat(nuevoIngCantidad), 
+      unidadBase: nuevoIngUnidad, 
+      costoPorUnidadBase: costoNuevo 
+    };
+
     try {
-      const datos = { nombre: nuevoIngNombre, costoCompra: parseFloat(nuevoIngCosto), cantidadCompra: parseFloat(nuevoIngCantidad), unidadBase: nuevoIngUnidad, costoPorUnidadBase: costoBase };
-      if (editandoIngId) await updateDoc(doc(db, "ingredientes", editandoIngId), datos);
-      else await addDoc(collection(db, "ingredientes"), datos);
+      if (editandoIngId && ingAnterior) {
+        // Calcular impacto antes de guardar
+        const afectados = calcularImpacto(editandoIngId, ingAnterior.costoPorUnidadBase, costoNuevo);
+        
+        await updateDoc(doc(db, "ingredientes", editandoIngId), datos);
+
+        if (afectados.length > 0) {
+          setAlertaImpacto({
+            ingrediente: nuevoIngNombre,
+            porcentajeIng: ((costoNuevo - ingAnterior.costoPorUnidadBase) / ingAnterior.costoPorUnidadBase) * 100,
+            productos: afectados
+          });
+          setMensaje(`⚠️ Precio actualizado — ${afectados.length} producto(s) cambiaron su costo`);
+        } else {
+          setMensaje("✅ Precio actualizado — ningún producto usa este ingrediente todavía");
+        }
+        setTimeout(() => { setMensaje(''); setAlertaImpacto(null); }, 8000);
+      } else {
+        await addDoc(collection(db, "ingredientes"), datos);
+        setMensaje("✅ Ingrediente agregado a la alacena");
+        setTimeout(() => setMensaje(''), 4000);
+      }
       limpiarIngrediente();
     } catch (err) { alert("Error al guardar ingrediente"); }
   };
 
   const prepararEdicionIngrediente = (ing) => {
     setEditandoIngId(ing.id);
+    setIngAnterior(ing); // ← guardamos estado original
     setNuevoIngNombre(ing.nombre);
     setNuevoIngCosto(ing.costoCompra);
     setNuevoIngCantidad(ing.cantidadCompra);
     setNuevoIngUnidad(ing.unidadBase);
+    setAlertaImpacto(null);
   };
 
   const limpiarIngrediente = () => {
     setEditandoIngId(null);
+    setIngAnterior(null);
     setNuevoIngNombre(''); setNuevoIngCosto(''); setNuevoIngCantidad(''); setNuevoIngUnidad('g');
+    setAlertaImpacto(null);
   };
 
   const eliminarIngredienteDB = async (id) => {
@@ -118,20 +197,26 @@ function Cotizador() {
     if (!ing) return;
     const mult = factorConversion[recetaMedida];
     const totalUnidades = parseFloat(recetaCantidad) * mult;
-    const costo = totalUnidades * ing.costoPorUnidadBase;
     const etiqueta = recetaMedida === 'unidad_base' ? ing.unidadBase : recetaMedida.replace('_', ' ');
-    setMaterialesReceta([...materialesReceta, { id: Date.now(), ingredienteId: ing.id, nombre: `${recetaCantidad} ${etiqueta} de ${ing.nombre}`, costo, cantidadUnidadBase: totalUnidades }]);
+    
+    setMaterialesReceta([...materialesReceta, { 
+      id: Date.now(), 
+      ingredienteId: ing.id, 
+      nombre: `${recetaCantidad} ${etiqueta} de ${ing.nombre}`, 
+      cantidadUnidadBase: totalUnidades 
+    }]);
     setRecetaIngId(''); setRecetaCantidad(''); setRecetaMedida('unidad_base');
+  };
+
+  const obtenerCostoItem = (item) => {
+    const ing = ingredientesDB.find(i => i.id === item.ingredienteId);
+    if (!ing) return 0;
+    return item.cantidadUnidadBase * ing.costoPorUnidadBase;
   };
 
   const eliminarDeLaReceta = (id) => {
     setMaterialesReceta(materialesReceta.filter(i => i.id !== id));
   };
-
-  // Cálculos
-  const costoTotal = materialesReceta.reduce((sum, i) => sum + i.costo, 0);
-  const costoPorPieza = piezasProducidas > 0 ? costoTotal / piezasProducidas : 0;
-  const precioPieza = costoPorPieza * (1 + margenGanancia / 100);
 
   // Presentaciones
   const agregarPresentacion = () => {
@@ -144,7 +229,7 @@ function Cotizador() {
     setPresentaciones(presentaciones.map(p => p.id === id ? { ...p, [campo]: valor } : p));
   };
 
-  // 💾 Guardar TODO
+  // 💾 Guardar receta
   const guardarRecetaEnProducto = async () => {
     if (!productoSeleccionadoId) {
       alert("⚠️ Primero selecciona un producto del menú desplegable arriba");
@@ -152,7 +237,11 @@ function Cotizador() {
     }
     try {
       const presValidas = presentaciones.filter(p => p.nombre && p.precioVenta);
-      const presCatalogo = presValidas.map(p => ({ nombre: p.nombre, precio: parseFloat(p.precioVenta), cantidadPiezas: parseInt(p.cantidad) || 1 }));
+      const presCatalogo = presValidas.map(p => ({ 
+        nombre: p.nombre, 
+        precio: parseFloat(p.precioVenta), 
+        cantidadPiezas: parseInt(p.cantidad) || 1 
+      }));
       const precioBase = presCatalogo.length > 0 ? Math.min(...presCatalogo.map(p => p.precio)) : 0;
 
       await updateDoc(doc(db, "productos", productoSeleccionadoId), {
@@ -165,7 +254,7 @@ function Cotizador() {
         piezasPorLote: piezasProducidas,
         fechaModificacion: new Date()
       });
-      setMensaje("✅ ¡Receta, costos y precios guardados! Sincronizado con el catálogo.");
+      setMensaje("✅ ¡Receta, costos y precios guardados!");
       setTimeout(() => setMensaje(''), 4000);
     } catch (err) {
       console.error(err);
@@ -181,8 +270,53 @@ function Cotizador() {
       </div>
 
       {mensaje && (
-        <div className="mb-6 bg-emerald-100 border border-emerald-300 text-emerald-800 px-6 py-4 rounded-2xl font-bold flex items-center gap-3">
-          <i className="fa-solid fa-circle-check text-xl"></i> {mensaje}
+        <div className={`mb-6 px-6 py-4 rounded-2xl font-bold flex items-center gap-3 ${
+          alertaImpacto ? 'bg-amber-100 border border-amber-300 text-amber-800' : 'bg-emerald-100 border border-emerald-300 text-emerald-800'
+        }`}>
+          <i className={`fa-solid ${alertaImpacto ? 'fa-triangle-exclamation text-xl' : 'fa-circle-check text-xl'}`}></i> 
+          {mensaje}
+        </div>
+      )}
+
+      {/* 🚨 ALERTA DETALLADA DE IMPACTO */}
+      {alertaImpacto && (
+        <div className="mb-6 bg-amber-50 border-2 border-amber-300 rounded-2xl p-5">
+          <h4 className="font-bold text-amber-800 mb-3 flex items-center gap-2">
+            <i className="fa-solid fa-chart-line"></i> Impacto en costos — {alertaImpacto.ingrediente}
+            <span className={`ml-auto text-sm px-3 py-1 rounded-full font-bold ${alertaImpacto.porcentajeIng > 0 ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>
+              {alertaImpacto.porcentajeIng > 0 ? '⬆️' : '⬇️'} {Math.abs(alertaImpacto.porcentajeIng).toFixed(1)}%
+            </span>
+          </h4>
+          <div className="overflow-hidden rounded-xl border border-amber-200 bg-white">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-amber-100/50 text-amber-800">
+                  <th className="text-left py-2 px-4 font-bold">Producto</th>
+                  <th className="text-right py-2 px-4 font-bold">Costo Anterior</th>
+                  <th className="text-right py-2 px-4 font-bold">Costo Nuevo</th>
+                  <th className="text-right py-2 px-4 font-bold">Variación</th>
+                </tr>
+              </thead>
+              <tbody>
+                {alertaImpacto.productos.map((prod, i) => (
+                  <tr key={i} className="border-t border-amber-100">
+                    <td className="py-3 px-4 font-medium">{prod.nombre}</td>
+                    <td className="py-3 px-4 text-right text-slate-500">${prod.costoAnterior.toFixed(2)}</td>
+                    <td className="py-3 px-4 text-right font-bold text-[#4A2B50]">${prod.costoNuevo.toFixed(2)}</td>
+                    <td className={`py-3 px-4 text-right font-bold ${prod.impactoPorPieza > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                      {prod.impactoPorPieza > 0 ? '+' : ''}${prod.impactoPorPieza.toFixed(2)} / pza
+                      <span className="block text-xs opacity-70">
+                        {prod.porcentajeCambio !== 0 && (prod.porcentajeCambio > 0 ? '+' : '')}{prod.porcentajeCambio.toFixed(1)}%
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-3 text-xs text-amber-700">
+            💡 Ve al producto afectado y presiona "Guardar Receta y Precios" para actualizar su costo y precio sugerido.
+          </p>
         </div>
       )}
 
@@ -190,32 +324,120 @@ function Cotizador() {
         
         {/* Alacena */}
         <div className="lg:col-span-4 bg-slate-800 rounded-3xl p-6 text-white shadow-lg flex flex-col h-[900px]">
-          <h3 className="font-bold text-lg text-emerald-400 mb-4"><i className="fa-solid fa-database mr-2"></i> Mi Alacena</h3>
+          <h3 className="font-bold text-lg text-emerald-400 mb-4">
+            <i className="fa-solid fa-database mr-2"></i> Mi Alacena
+          </h3>
+          
           <form onSubmit={guardarIngredienteDB} className="space-y-3 mb-6 bg-slate-700/50 p-4 rounded-2xl">
-            <input type="text" placeholder="Nombre del ingrediente" value={nuevoIngNombre} onChange={(e)=>setNuevoIngNombre(e.target.value)} className="w-full bg-slate-900 rounded-xl px-3 py-2 text-sm text-white" required />
-            <div className="grid grid-cols-2 gap-2">
-              <input type="number" step="0.01" placeholder="Costo ($)" value={nuevoIngCosto} onChange={(e)=>setNuevoIngCosto(e.target.value)} className="w-full bg-slate-900 rounded-xl px-3 py-2 text-sm text-white" required />
-              <input type="number" step="0.01" placeholder="Cantidad" value={nuevoIngCantidad} onChange={(e)=>setNuevoIngCantidad(e.target.value)} className="w-full bg-slate-900 rounded-xl px-3 py-2 text-sm text-white" required />
+            <p className="text-xs text-slate-400 mb-2">
+              {editandoIngId ? '✏️ Estás editando — cambia solo lo que necesites' : '➕ Agrega un nuevo ingrediente'}
+            </p>
+            
+            <input 
+              type="text" 
+              placeholder="Ej: Harina, Azúcar, Mantequilla..." 
+              value={nuevoIngNombre} 
+              onChange={(e)=>setNuevoIngNombre(e.target.value)} 
+              className="w-full bg-slate-900 rounded-xl px-3 py-2 text-sm text-white" 
+              required 
+            />
+            
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">💲 Precio que pagaste</label>
+                <input 
+                  type="number" step="0.01" 
+                  placeholder="$$$" 
+                  value={nuevoIngCosto} 
+                  onChange={(e)=>setNuevoIngCosto(e.target.value)} 
+                  className="w-full bg-slate-900 rounded-xl px-3 py-2 text-sm text-white" 
+                  required 
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-400 mb-1">📦 Cantidad que traía</label>
+                <input 
+                  type="number" step="0.01" 
+                  placeholder="Ej: 1000, 500, 1" 
+                  value={nuevoIngCantidad} 
+                  onChange={(e)=>setNuevoIngCantidad(e.target.value)} 
+                  className="w-full bg-slate-900 rounded-xl px-3 py-2 text-sm text-white" 
+                  required 
+                />
+              </div>
             </div>
-            <select value={nuevoIngUnidad} onChange={(e)=>setNuevoIngUnidad(e.target.value)} className="w-full bg-slate-900 rounded-xl px-3 py-2 text-sm text-white">
-              <option value="g">Gramos</option>
-              <option value="ml">Mililitros</option>
-              <option value="pz">Piezas</option>
-            </select>
-            <button type="submit" className={`w-full font-bold py-2.5 rounded-xl ${editandoIngId ? 'bg-amber-500' : 'bg-emerald-500'} text-white`}>
-              {editandoIngId ? 'Actualizar' : 'Agregar'}
+
+            <div>
+              <label className="block text-xs text-slate-400 mb-1">📏 Unidad de medida</label>
+              <select 
+                value={nuevoIngUnidad} 
+                onChange={(e)=>setNuevoIngUnidad(e.target.value)} 
+                className="w-full bg-slate-900 rounded-xl px-3 py-2 text-sm text-white"
+              >
+                <option value="g">Gramos (g)</option>
+                <option value="ml">Mililitros (ml)</option>
+                <option value="pz">Piezas / Unidades</option>
+              </select>
+            </div>
+
+            <div className="bg-slate-900/50 p-2 rounded-lg text-xs text-slate-300">
+              📌 Costo por unidad: <strong className="text-emerald-400">
+                {nuevoIngCosto && nuevoIngCantidad 
+                  ? `$${(parseFloat(nuevoIngCosto) / parseFloat(nuevoIngCantidad)).toFixed(4)} / ${nuevoIngUnidad}` 
+                  : '—'}
+              </strong>
+              {editandoIngId && ingAnterior && (
+                <span className="ml-2 text-amber-400">
+                  (antes: ${ingAnterior.costoPorUnidadBase.toFixed(4)})
+                </span>
+              )}
+            </div>
+
+            <button 
+              type="submit" 
+              className={`w-full font-bold py-2.5 rounded-xl ${editandoIngId ? 'bg-amber-500 hover:bg-amber-600' : 'bg-emerald-500 hover:bg-emerald-600'} text-white transition-colors`}
+            >
+              {editandoIngId ? '✏️ Actualizar Precio' : '➕ Agregar Ingrediente'}
             </button>
+
+            {editandoIngId && (
+              <button 
+                type="button" 
+                onClick={limpiarIngrediente}
+                className="w-full font-bold py-2 rounded-xl bg-slate-600 hover:bg-slate-500 text-white text-sm"
+              >
+                Cancelar edición
+              </button>
+            )}
           </form>
+
           <div className="flex-1 overflow-y-auto space-y-2">
             {ingredientesDB.map(ing => (
               <div key={ing.id} className="p-3 rounded-xl bg-slate-700 hover:bg-slate-600 flex justify-between items-center">
                 <div>
                   <p className="font-bold text-sm">{ing.nombre}</p>
-                  <p className="text-xs text-slate-400">${ing.costoCompra} / {ing.cantidadCompra}{ing.unidadBase}</p>
+                  <p className="text-xs text-slate-400">
+                    Pagaste: <span className="text-white">${ing.costoCompra}</span> por{' '}
+                    <span className="text-white">{ing.cantidadCompra}{ing.unidadBase}</span>
+                    <br />
+                    → <span className="text-emerald-400">${ing.costoPorUnidadBase.toFixed(4)} / {ing.unidadBase}</span>
+                  </p>
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={()=>prepararEdicionIngrediente(ing)} className="text-slate-400 hover:text-amber-400"><i className="fa-solid fa-pen"></i></button>
-                  <button onClick={()=>eliminarIngredienteDB(ing.id)} className="text-slate-400 hover:text-red-400"><i className="fa-solid fa-trash"></i></button>
+                  <button 
+                    onClick={()=>prepararEdicionIngrediente(ing)} 
+                    className="text-slate-400 hover:text-amber-400 text-lg"
+                    title="Editar precio o cantidad"
+                  >
+                    <i className="fa-solid fa-pen-to-square"></i>
+                  </button>
+                  <button 
+                    onClick={()=>eliminarIngredienteDB(ing.id)} 
+                    className="text-slate-400 hover:text-red-400 text-lg"
+                    title="Eliminar ingrediente"
+                  >
+                    <i className="fa-solid fa-trash"></i>
+                  </button>
                 </div>
               </div>
             ))}
@@ -225,7 +447,7 @@ function Cotizador() {
         {/* Panel Principal */}
         <div className="lg:col-span-8 space-y-6">
           
-          {/* 🔴 SELECCIÓN DE PRODUCTO — SIEMPRE VISIBLE Y FUNCIONA */}
+          {/* Selección de producto */}
           <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
             <label className="block text-xs font-bold text-[#4A2B50] uppercase mb-2">
               🔗 ¿De qué producto quieres editar la receta?
@@ -262,12 +484,21 @@ function Cotizador() {
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Piezas por lote</label>
-                    <input type="number" min="1" value={piezasProducidas} onChange={(e) => setPiezasProducidas(parseInt(e.target.value) || 1)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm" />
+                    <input 
+                      type="number" min="1" 
+                      value={piezasProducidas} 
+                      onChange={(e) => setPiezasProducidas(parseInt(e.target.value) || 1)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm" 
+                    />
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Margen de ganancia: {margenGanancia}%</label>
-                    <input type="range" min="10" max="300" step="5" value={margenGanancia} onChange={(e) => setMargenGanancia(parseInt(e.target.value))} className="w-full accent-emerald-500" />
+                    <input 
+                      type="range" min="10" max="300" step="5" 
+                      value={margenGanancia} 
+                      onChange={(e) => setMargenGanancia(parseInt(e.target.value))} 
+                      className="w-full accent-emerald-500" 
+                    />
                   </div>
                 </div>
               </div>
@@ -279,13 +510,29 @@ function Cotizador() {
                   <span className="ml-2 text-sm font-normal text-slate-500">({materialesReceta.length})</span>
                 </h3>
                 <form onSubmit={agregarALaReceta} className="grid md:grid-cols-4 gap-2 mb-6 bg-slate-50 p-4 rounded-2xl">
-                  <select value={recetaIngId} onChange={(e)=>setRecetaIngId(e.target.value)} className="md:col-span-2 bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm" required>
+                  <select 
+                    value={recetaIngId} 
+                    onChange={(e)=>setRecetaIngId(e.target.value)} 
+                    className="md:col-span-2 bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm" 
+                    required
+                  >
                     <option value="">Agregar de la alacena...</option>
                     {ingredientesDB.map(ing => <option key={ing.id} value={ing.id}>{ing.nombre}</option>)}
                   </select>
-                  <input type="number" step="0.1" min="0.1" placeholder="Cantidad" value={recetaCantidad} onChange={(e)=>setRecetaCantidad(e.target.value)} className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm" required />
+                  <input 
+                    type="number" step="0.1" min="0.1" 
+                    placeholder="Cantidad" 
+                    value={recetaCantidad} 
+                    onChange={(e)=>setRecetaCantidad(e.target.value)} 
+                    className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm" 
+                    required 
+                  />
                   <div className="flex gap-2">
-                    <select value={recetaMedida} onChange={(e)=>setRecetaMedida(e.target.value)} className="flex-1 bg-white border border-slate-200 rounded-xl px-2 py-2 text-xs">
+                    <select 
+                      value={recetaMedida} 
+                      onChange={(e)=>setRecetaMedida(e.target.value)} 
+                      className="flex-1 bg-white border border-slate-200 rounded-xl px-2 py-2 text-xs"
+                    >
                       <option value="unidad_base">g/ml/pz</option>
                       <option value="taza_liquido">Taza Líq</option>
                       <option value="taza_harina">Taza Harina</option>
@@ -303,8 +550,12 @@ function Cotizador() {
                     <div key={item.id || i} className="flex justify-between items-center bg-slate-50 px-4 py-3 rounded-xl">
                       <span className="text-sm">{item.nombre}</span>
                       <div className="flex items-center gap-4">
-                        <span className="font-bold text-[#4A2B50]">${(item.costo||0).toFixed(2)}</span>
-                        <button onClick={() => eliminarDeLaReceta(item.id)} className="text-slate-400 hover:text-red-500"><i className="fa-solid fa-xmark"></i></button>
+                        <span className="font-bold text-[#4A2B50]">
+                          ${obtenerCostoItem(item).toFixed(2)}
+                        </span>
+                        <button onClick={() => eliminarDeLaReceta(item.id)} className="text-slate-400 hover:text-red-500">
+                          <i className="fa-solid fa-xmark"></i>
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -313,6 +564,7 @@ function Cotizador() {
                   <span className="text-slate-500 mr-4">Costo Total del Lote:</span>
                   <span className="text-xl font-black text-[#4A2B50]">${costoTotal.toFixed(2)}</span>
                   <span className="ml-4 text-emerald-600 font-bold">→ ${costoPorPieza.toFixed(2)} / pieza</span>
+                  <p className="text-xs text-slate-400 mt-1">🔄 Los costos se actualizan automáticamente si cambias precios en la alacena</p>
                 </div>
               </div>
 
@@ -329,13 +581,21 @@ function Cotizador() {
                       <div key={p.id} className="flex gap-3 items-center bg-slate-50 p-3 rounded-xl">
                         <div className="w-20">
                           <label className="block text-[10px] font-bold text-slate-400">Piezas</label>
-                          <input type="number" min="1" value={p.cantidad} onChange={(e) => actualizarPresentacion(p.id, 'cantidad', e.target.value)}
-                            className="w-full bg-white border border-slate-200 rounded-lg px-2 py-2 text-sm font-bold text-center" />
+                          <input 
+                            type="number" min="1" 
+                            value={p.cantidad} 
+                            onChange={(e) => actualizarPresentacion(p.id, 'cantidad', e.target.value)}
+                            className="w-full bg-white border border-slate-200 rounded-lg px-2 py-2 text-sm font-bold text-center" 
+                          />
                         </div>
                         <div className="flex-1">
                           <label className="block text-[10px] font-bold text-slate-400">Nombre</label>
-                          <input type="text" value={p.nombre} onChange={(e) => actualizarPresentacion(p.id, 'nombre', e.target.value)}
-                            className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                          <input 
+                            type="text" 
+                            value={p.nombre} 
+                            onChange={(e) => actualizarPresentacion(p.id, 'nombre', e.target.value)}
+                            className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm" 
+                          />
                         </div>
                         <div className="w-28 text-right">
                           <span className="block text-[10px] text-slate-400">Sugerido</span>
@@ -343,11 +603,19 @@ function Cotizador() {
                         </div>
                         <div className="w-28">
                           <label className="block text-[10px] font-bold text-slate-400">Precio Final</label>
-                          <input type="number" step="0.50" value={p.precioVenta} onChange={(e) => actualizarPresentacion(p.id, 'precioVenta', e.target.value)}
-                            className="w-full bg-white border-2 border-emerald-200 rounded-lg px-3 py-2 text-sm font-bold" />
+                          <input 
+                            type="number" step="0.50" 
+                            value={p.precioVenta} 
+                            onChange={(e) => actualizarPresentacion(p.id, 'precioVenta', e.target.value)}
+                            className="w-full bg-white border-2 border-emerald-200 rounded-lg px-3 py-2 text-sm font-bold" 
+                          />
                         </div>
                         {presentaciones.length > 1 && (
-                          <button type="button" onClick={() => eliminarPresentacion(p.id)} className="text-slate-300 hover:text-red-500">
+                          <button 
+                            type="button" 
+                            onClick={() => eliminarPresentacion(p.id)} 
+                            className="text-slate-300 hover:text-red-500"
+                          >
                             <i className="fa-solid fa-trash"></i>
                           </button>
                         )}
@@ -359,7 +627,10 @@ function Cotizador() {
 
               {/* Guardar */}
               <div className="flex justify-end">
-                <button onClick={guardarRecetaEnProducto} className="bg-[#4A2B50] hover:bg-opacity-90 text-white font-bold px-8 py-3 rounded-xl text-lg shadow-md">
+                <button 
+                  onClick={guardarRecetaEnProducto} 
+                  className="bg-[#4A2B50] hover:bg-opacity-90 text-white font-bold px-8 py-3 rounded-xl text-lg shadow-md"
+                >
                   💾 Guardar Receta y Precios
                 </button>
               </div>
@@ -372,5 +643,6 @@ function Cotizador() {
 }
 
 export default Cotizador;
+
 
 
