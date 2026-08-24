@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot } from 'firebase/firestore';
 import Cotizador from './Cotizador';
@@ -17,31 +17,10 @@ function Admin() {
   const [imagenBase64, setImagenBase64] = useState('');
   const [nombreArchivo, setNombreArchivo] = useState('');
 
-  // === PRESENTACIONES (paquetes con precios) ===
+  // Sincronizado con el Cotizador (nombre, precio, cantidad de piezas)
   const [presentaciones, setPresentaciones] = useState([
     { nombre: '1 Pieza', precio: '', cantidadPiezas: 1 }
   ]);
-
-  // =============================================================
-  // 🆕 ESTADOS: Costos y receta — AHORA EDITABLES
-  // =============================================================
-  const [recetaIngredientes, setRecetaIngredientes] = useState([]);
-  const [costoRealProduccion, setCostoRealProduccion] = useState(0);
-  const [piezasPorLote, setPiezasPorLote] = useState(1);
-  const [margenGanancia, setMargenGanancia] = useState(50);
-  const [precioSugerido, setPrecioSugerido] = useState(0);
-
-  // =============================================================
-  // ⚡ CÁLCULO AUTOMÁTICO: Precio sugerido en tiempo real
-  // Se recalcula cada vez que cambia costo, lote o margen
-  // =============================================================
-  useEffect(() => {
-    const costoPorPieza = piezasPorLote > 0 && costoRealProduccion >= 0 
-      ? costoRealProduccion / piezasPorLote 
-      : 0;
-    const sugerido = costoPorPieza * (1 + margenGanancia / 100);
-    setPrecioSugerido(sugerido > 0 ? sugerido : 0);
-  }, [costoRealProduccion, piezasPorLote, margenGanancia]);
 
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, "productos"), (snapshot) => {
@@ -53,12 +32,6 @@ function Admin() {
     });
     return () => unsubscribe();
   }, []);
-
-  // 📌 Ordenar productos alfabéticamente — useMemo evita recalcular en cada render
-  const productosOrdenados = useMemo(() => 
-    [...productos].sort((a, b) => (a.nombre || '').localeCompare(b.nombre || '')),
-    [productos]
-  );
 
   const manejarImagen = (e) => {
     const file = e.target.files[0];
@@ -86,32 +59,12 @@ function Admin() {
     };
   };
 
-  // =============================================================
-  // 🛡️ VALIDACIONES MEJORADAS — mensaje exacto de lo que falta
-  // =============================================================
-  const validarFormulario = () => {
-    if (!nombre.trim()) {
-      alert("⚠️ Escribe el nombre del producto");
-      return false;
-    }
-    if (presentaciones.some(p => !p.precio || parseFloat(p.precio) <= 0)) {
-      alert("⚠️ Todas las presentaciones deben tener un precio mayor a $0");
-      return false;
-    }
-    if (costoRealProduccion < 0) {
-      alert("⚠️ El costo de producción no puede ser negativo");
-      return false;
-    }
-    if (piezasPorLote < 1) {
-      alert("⚠️ Las piezas por lote deben ser al menos 1");
-      return false;
-    }
-    return true;
-  };
-
   const guardarProducto = async (e) => {
     e.preventDefault();
-    if (!validarFormulario()) return;
+    if (!nombre || presentaciones.length === 0 || !presentaciones[0].precio) {
+      alert("Por favor completa el nombre y al menos una presentación con su precio.");
+      return;
+    }
 
     try {
       setCargando(true);
@@ -126,20 +79,13 @@ function Admin() {
       const precioBaseMinimo = Math.min(...precios);
 
       const datosProducto = {
-        nombre: nombre.trim(),
+        nombre: nombre || '',
         descripcion: descripcion || '',
-        precio: precioBaseMinimo,
+        precio: precioBaseMinimo, // Precio "Desde" para el catálogo
         categoria: categoria || 'General',
         subcategoria: subcategoria || '',
         imagen: imagenBase64 || 'https://via.placeholder.com/800',
         presentaciones: presentacionesValidas,
-        
-        recetaIngredientes: recetaIngredientes || [],
-        costoRealProduccion: parseFloat(costoRealProduccion) || 0,
-        piezasPorLote: parseInt(piezasPorLote) || 1,
-        margenGanancia: parseInt(margenGanancia) || 50,
-        precioSugerido: parseFloat(precioSugerido) || 0,
-        
         fechaModificacion: new Date()
       };
 
@@ -166,16 +112,13 @@ function Admin() {
     }
   };
 
-  // =============================================================
-  // 📥 CARGAR PRODUCTO PARA EDITAR — TODO incluido costos y receta
-  // =============================================================
   const prepararEdicion = (producto) => {
     setEditandoId(producto.id);
-    setNombre(producto.nombre || '');
-    setDescripcion(producto.descripcion || '');
-    setCategoria(producto.categoria || '');
-    setSubcategoria(producto.subcategoria || '');
-    setImagenBase64(producto.imagen || '');
+    setNombre(producto.nombre);
+    setDescripcion(producto.descripcion);
+    setCategoria(producto.categoria);
+    setSubcategoria(producto.subcategoria);
+    setImagenBase64(producto.imagen);
     
     if (!producto.presentaciones || producto.presentaciones.length === 0) {
       setPresentaciones([{ nombre: '1 Pieza', precio: producto.precio || '', cantidadPiezas: 1 }]);
@@ -186,13 +129,6 @@ function Admin() {
         cantidadPiezas: p.cantidadPiezas || 1
       })));
     }
-
-    setRecetaIngredientes(producto.recetaIngredientes || []);
-    setCostoRealProduccion(producto.costoRealProduccion ?? 0);
-    setPiezasPorLote(producto.piezasPorLote ?? 1);
-    setMargenGanancia(producto.margenGanancia ?? 50);
-    setPrecioSugerido(producto.precioSugerido ?? 0);
-
     setNombreArchivo('Imagen existente cargada');
     window.scrollTo({ top: 0, behavior: 'smooth' }); 
   };
@@ -206,12 +142,6 @@ function Admin() {
     setImagenBase64('');
     setNombreArchivo('');
     setPresentaciones([{ nombre: '1 Pieza', precio: '', cantidadPiezas: 1 }]);
-    
-    setRecetaIngredientes([]);
-    setCostoRealProduccion(0);
-    setPiezasPorLote(1);
-    setMargenGanancia(50);
-    setPrecioSugerido(0);
   };
 
   const agregarPresentacion = () => {
@@ -252,8 +182,7 @@ function Admin() {
         {seccionActiva === 'catalogo' && (
           <div className="max-w-5xl mx-auto space-y-8">
             
-            {/* 🆕 Borde diferente al editar — resalta el modo */}
-            <div className={`bg-white rounded-3xl p-6 md:p-8 shadow-sm border-2 transition-colors ${editandoId ? 'border-amber-400' : 'border-slate-100'}`}>
+            <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-100">
               <div className="flex justify-between items-center mb-6">
                 <div>
                   <h1 className="text-2xl font-serif font-bold text-[#4A2B50]">
@@ -275,7 +204,7 @@ function Admin() {
               <form onSubmit={guardarProducto} className="space-y-6">
                 <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-4">
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nombre del Producto *</label>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Nombre del Producto</label>
                     <input type="text" value={nombre} onChange={(e) => setNombre(e.target.value)} required placeholder="Ej. Alfajores Clásicos (Dulce de Leche)"
                       className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#4A2B50]" />
                   </div>
@@ -300,54 +229,12 @@ function Admin() {
                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Foto Principal</label>
                     <div className="border-2 border-dashed border-slate-300 rounded-xl p-2 text-center relative cursor-pointer flex items-center justify-center bg-slate-50 overflow-hidden h-[46px]">
                       <input type="file" accept="image/*" onChange={manejarImagen} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" />
-                      {/* 🆕 Previsualización de imagen */}
-                      {imagenBase64 ? (
-                        <div className="flex items-center gap-2">
-                          <img src={imagenBase64} alt="Vista previa" className="w-8 h-8 object-cover rounded-lg" />
-                          <span className="text-xs text-emerald-600 font-bold truncate">✓ {nombreArchivo || 'Imagen cargada'}</span>
-                        </div>
-                      ) : <span className="text-xs text-slate-500">Subir imagen</span>}
+                      {imagenBase64 ? <span className="text-xs text-emerald-600 font-bold truncate px-2"><i className="fa-solid fa-check mr-1"></i> Foto lista</span> : <span className="text-xs text-slate-500">Subir imagen</span>}
                     </div>
                   </div>
                 </div>
 
-                {/* 🆕 SECCIÓN DE COSTOS — AHORA EDITABLE DIRECTAMENTE */}
-                <div className="bg-[#F5EEFD]/50 p-4 rounded-2xl border border-[#4A2B50]/20 space-y-4">
-                  <h3 className="font-bold text-[#4A2B50] text-sm flex items-center gap-2">
-                    <i className="fa-solid fa-calculator"></i> Costos y Configuración
-                  </h3>
-                  <div className="grid md:grid-cols-4 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Costo Total Lote ($)</label>
-                      <input type="number" step="0.01" min="0" value={costoRealProduccion || ''} 
-                        onChange={(e) => setCostoRealProduccion(parseFloat(e.target.value) || 0)}
-                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-[#4A2B50] focus:outline-none focus:border-[#4A2B50]" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Piezas por Lote</label>
-                      <input type="number" min="1" value={piezasPorLote} 
-                        onChange={(e) => setPiezasPorLote(parseInt(e.target.value) || 1)}
-                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-[#4A2B50] focus:outline-none focus:border-[#4A2B50]" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Margen de Ganancia (%)</label>
-                      <input type="number" min="1" max="500" value={margenGanancia} 
-                        onChange={(e) => setMargenGanancia(parseInt(e.target.value) || 50)}
-                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-[#4A2B50] focus:outline-none focus:border-[#4A2B50]" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Precio Sugerido</label>
-                      <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2 text-sm font-bold text-emerald-600 text-center">
-                        ${precioSugerido.toFixed(2)}
-                      </div>
-                    </div>
-                  </div>
-                  <p className="text-xs text-slate-500">
-                    <i className="fa-solid fa-info-circle mr-1"></i> El precio sugerido se calcula automáticamente. Para definir la receta detallada, usa el Cotizador Inteligente.
-                  </p>
-                </div>
-
-                {/* SECCIÓN DE PRESENTACIONES */}
+                {/* SECCIÓN DE PRESENTACIONES COMPATIBLE */}
                 <div className="mt-8 border-t border-slate-200 pt-6">
                   <div className="flex justify-between items-center mb-4">
                     <div>
@@ -394,9 +281,9 @@ function Admin() {
               </form>
             </div>
 
-            {/* LISTA DE PRODUCTOS — con colores y orden alfabético */}
+            {/* LISTA DE PRODUCTOS */}
             <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-100">
-              <h2 className="text-xl font-bold text-[#4A2B50] mb-6">📦 Productos en el Menú ({productosOrdenados.length})</h2>
+              <h2 className="text-xl font-bold text-[#4A2B50] mb-6">📦 Productos en el Menú ({productos.length})</h2>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm text-slate-600 min-w-[600px]">
                   <thead className="bg-slate-50 border-b border-slate-200 text-xs uppercase font-bold text-slate-500">
@@ -404,39 +291,27 @@ function Admin() {
                       <th className="px-4 py-3 rounded-tl-xl">Foto</th>
                       <th className="px-4 py-3">Nombre</th>
                       <th className="px-4 py-3">Precio Desde</th>
-                      <th className="px-4 py-3">Costo Producción</th>
                       <th className="px-4 py-3">Opciones</th>
                       <th className="px-4 py-3 rounded-tr-xl text-right">Acciones</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {productosOrdenados.length === 0 ? (
-                      <tr><td colSpan="6" className="px-4 py-8 text-center text-slate-400">No hay productos guardados aún.</td></tr>
+                    {productos.length === 0 ? (
+                      <tr><td colSpan="5" className="px-4 py-8 text-center text-slate-400">No hay productos guardados aún.</td></tr>
                     ) : (
-                      productosOrdenados.map((prod) => (
+                      productos.map((prod) => (
                         <tr key={prod.id} className="hover:bg-slate-50 transition-colors">
                           <td className="px-4 py-3"><img src={prod.imagen} alt={prod.nombre} className="w-12 h-12 object-cover rounded-lg shadow-sm border border-slate-200" /></td>
                           <td className="px-4 py-3 font-medium text-slate-800">{prod.nombre}</td>
                           <td className="px-4 py-3 font-bold text-emerald-600">${prod.precio}</td>
-                          <td className="px-4 py-3 text-sm font-mono">
-                            {prod.costoRealProduccion ? (
-                              <span className="text-blue-600">${prod.costoRealProduccion.toFixed(2)}</span>
-                            ) : (
-                              <span className="text-slate-300">— Sin dato</span>
-                            )}
-                          </td>
                           <td className="px-4 py-3 text-xs">
                             <span className="bg-[#F5EEFD] text-[#4A2B50] px-2 py-1 rounded font-bold">
                               {prod.presentaciones ? prod.presentaciones.length : 1} pres.
                             </span>
                           </td>
                           <td className="px-4 py-3 text-right space-x-2">
-                            <button onClick={() => prepararEdicion(prod)} className="w-8 h-8 rounded-full bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors" title="Editar">
-                              <i className="fa-solid fa-pen"></i>
-                            </button>
-                            <button onClick={() => eliminarProducto(prod.id)} className="w-8 h-8 rounded-full bg-red-50 text-red-600 hover:bg-red-100 transition-colors" title="Eliminar">
-                              <i className="fa-solid fa-trash"></i>
-                            </button>
+                            <button onClick={() => prepararEdicion(prod)} className="w-8 h-8 rounded-full bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors"><i className="fa-solid fa-pen"></i></button>
+                            <button onClick={() => eliminarProducto(prod.id)} className="w-8 h-8 rounded-full bg-red-50 text-red-600 hover:bg-red-100 transition-colors"><i className="fa-solid fa-trash"></i></button>
                           </td>
                         </tr>
                       ))
@@ -458,4 +333,3 @@ function Admin() {
 }
 
 export default Admin;
-

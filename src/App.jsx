@@ -25,7 +25,6 @@ function App() {
             <Route path="/" element={<Inicio />} />
             <Route path="/nosotros" element={<Nosotros />} />
             <Route path="/catalogo" element={<Catalogo />} />
-            <Route path="/Cotizador" element={<Cotizador />} />
             <Route path="/Admin" element={<Admin />} />
           </Routes>
         </main>

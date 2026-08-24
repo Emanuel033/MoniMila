@@ -27,7 +27,7 @@ function Cotizador() {
   const [productoSeleccionadoId, setProductoSeleccionadoId] = useState(''); 
   const [mensajeVinculacion, setMensajeVinculacion] = useState('');
 
-  // === ESTADO DE PRESENTACIONES / PAQUETES Y PRECIOS ===
+  // === NUEVO: ESTADO DE PRESENTACIONES / PAQUETES Y PRECIOS ===
   const [presentaciones, setPresentaciones] = useState([
     { id: 1, cantidad: 1, nombre: '1 Pieza', precioVenta: '' },
     { id: 2, cantidad: 6, nombre: '6 Piezas (Media Docena)', precioVenta: '' },
@@ -44,64 +44,6 @@ function Cotizador() {
     cucharadita: 5 
   };
 
-  // =============================================================
-  // 🔄 NUEVO: CARGAR DATOS DEL PRODUCTO SELECCIONADO
-  // Se ejecuta cada vez que cambias de producto en el select
-  // =============================================================
-  useEffect(() => {
-    // Si no hay producto seleccionado, limpiamos todo
-    if (!productoSeleccionadoId) {
-      resetearFormulario();
-      return;
-    }
-
-    // Buscar el producto en la lista que viene de Firestore
-    const producto = productosDB.find(p => p.id === productoSeleccionadoId);
-    if (!producto) return;
-
-    // 📥 Cargar datos del producto en los campos del formulario
-    setNombreProducto(producto.nombre || 'Nueva Receta');
-    setPiezasProducidas(producto.piezasPorLote || 1);
-    setMaterialesReceta(producto.recetaIngredientes || []);
-    setMargenGanancia(producto.margenGanancia || 50);
-
-    // 📥 Cargar presentaciones guardadas
-    if (producto.presentaciones && producto.presentaciones.length > 0) {
-      const presCargadas = producto.presentaciones.map((p, index) => ({
-        id: Date.now() + index,
-        cantidad: p.cantidadPiezas || 1,
-        nombre: p.nombre || '',
-        precioVenta: p.precio || ''
-      }));
-      setPresentaciones(presCargadas);
-    } else {
-      setPresentaciones([
-        { id: 1, cantidad: 1, nombre: '1 Pieza', precioVenta: '' },
-        { id: 2, cantidad: 6, nombre: '6 Piezas (Media Docena)', precioVenta: '' },
-        { id: 3, cantidad: 12, nombre: '12 Piezas (Docena)', precioVenta: '' }
-      ]);
-    }
-  }, [productoSeleccionadoId, productosDB]);
-
-  // =============================================================
-  // 🔄 NUEVO: FUNCIÓN PARA RESETEAR FORMULARIO
-  // Limpia todo cuando no hay producto seleccionado
-  // =============================================================
-  const resetearFormulario = () => {
-    setNombreProducto('Nueva Receta');
-    setPiezasProducidas(1);
-    setMaterialesReceta([]);
-    setMargenGanancia(50);
-    setPresentaciones([
-      { id: 1, cantidad: 1, nombre: '1 Pieza', precioVenta: '' },
-      { id: 2, cantidad: 6, nombre: '6 Piezas (Media Docena)', precioVenta: '' },
-      { id: 3, cantidad: 12, nombre: '12 Piezas (Docena)', precioVenta: '' }
-    ]);
-  };
-
-  // =============================================================
-  // 🔄 Cargar datos iniciales de Firestore
-  // =============================================================
   useEffect(() => {
     const unsubIng = onSnapshot(collection(db, "ingredientes"), (snapshot) => {
       const lista = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -199,7 +141,6 @@ function Cotizador() {
     setMaterialesReceta(materialesReceta.filter(item => item.id !== id));
   };
 
-  // === CÁLCULOS EN TIEMPO REAL ===
   const costoTotalInsumos = materialesReceta.reduce((total, item) => total + item.costo, 0);
   const piezasValidas = piezasProducidas > 0 ? piezasProducidas : 1;
   const costoPorPieza = costoTotalInsumos / piezasValidas;
@@ -220,9 +161,7 @@ function Cotizador() {
     setPresentaciones(presentaciones.map(p => p.id === id ? { ...p, [campo]: valor } : p));
   };
 
-  // =============================================================
-  // 💾 GUARDAR RECETA Y PRECIOS — AHORA TAMBIÉN GUARDA EL MARGEN
-  // =============================================================
+  // === VINCULACIÓN INTELIGENTE (RECETA + PRESENTACIONES AL CATÁLOGO) ===
   const guardarRecetaEnProducto = async () => {
     if (!productoSeleccionadoId) {
       alert("Por favor selecciona a qué producto del menú pertenece esta receta.");
@@ -236,26 +175,27 @@ function Cotizador() {
     }
 
     try {
+      // Formateamos las presentaciones para que el catálogo las lea directo
       const presentacionesCatalogo = presentacionesValidas.map(p => ({
         nombre: p.nombre,
         precio: parseFloat(p.precioVenta),
-        cantidadPiezas: parseInt(p.cantidad) || 1
+        cantidadPiezas: parseInt(p.cantidad) || 1 // Guardamos cuántas piezas trae este paquete para futuros pedidos
       }));
 
+      // Buscamos el precio más económico para definir el "Precio Base / Desde" en la tarjeta principal
       const precioBaseMinimo = Math.min(...presentacionesCatalogo.map(p => p.precio));
 
       const productoRef = doc(db, "productos", productoSeleccionadoId);
       await updateDoc(productoRef, {
         precio: precioBaseMinimo,
         presentaciones: presentacionesCatalogo,
-        recetaIngredientes: materialesReceta,
+        recetaIngredientes: materialesReceta, // Receta base intacta
         costoRealProduccion: costoPorPieza,
-        margenGanancia: margenGanancia,
         precioSugerido: precioPieza,
-        piezasPorLote: piezasProducidas
+        piezasPorLote: piezasProducidas // <- ESTE ES EL SECRETO: El lote original (ej. 6 piezas) para calcular las proporciones exactas al restar stock después
       });
 
-      setMensajeVinculacion("¡Receta, presentaciones y precios sincronizados! 🔗✨");
+      setMensajeVinculacion("¡Receta, presentaciones y precios sincronizados con éxito en el producto! 🔗✨");
       setTimeout(() => setMensajeVinculacion(''), 4000);
     } catch (error) {
       console.error("Error al vincular:", error);
@@ -347,15 +287,13 @@ function Cotizador() {
             {/* SECCIÓN DE VINCULACIÓN CON EL MENÚ */}
             <div className="pt-4 border-t border-slate-100 bg-[#F5EEFD]/40 p-4 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4">
               <div className="w-full md:w-auto flex-1">
-                <label className="block text-xs font-bold text-[#4A2B50] uppercase mb-1">
-                  {productoSeleccionadoId ? '✏️ Editando receta del producto:' : 'Vincular receta con producto del Catálogo:'}
-                </label>
+                <label className="block text-xs font-bold text-[#4A2B50] uppercase mb-1">Vincular receta y precios con producto del Catálogo:</label>
                 <select 
                   value={productoSeleccionadoId} 
                   onChange={(e) => setProductoSeleccionadoId(e.target.value)}
                   className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-700 focus:outline-none focus:border-[#4A2B50]"
                 >
-                  <option value="">-- Selecciona el producto --</option>
+                  <option value="">-- Selecciona el postre en venta --</option>
                   {productosDB.map(prod => (
                     <option key={prod.id} value={prod.id}>{prod.nombre} (${prod.precio})</option>
                   ))}
@@ -366,7 +304,7 @@ function Cotizador() {
                 onClick={guardarRecetaEnProducto}
                 className="w-full md:w-auto bg-[#4A2B50] hover:bg-opacity-90 text-white font-bold px-6 py-2.5 rounded-xl text-sm transition-all shadow-sm whitespace-nowrap mt-5 md:mt-0"
               >
-                <i className="fa-solid fa-link mr-2"></i> {productoSeleccionadoId ? 'Actualizar Receta' : 'Guardar Receta'}
+                <i className="fa-solid fa-link mr-2"></i> Guardar Receta y Precios
               </button>
             </div>
           </div>
@@ -399,7 +337,7 @@ function Cotizador() {
               </div>
             </form>
 
-            <div className="space-y-2 max-h-80 overflow-y-auto">
+            <div className="space-y-2 max-h-50 overflow-y-auto">
               {materialesReceta.length === 0 && <p className="text-center text-sm text-slate-400 py-4">No has agregado ingredientes a la receta.</p>}
               {materialesReceta.map((item) => (
                 <div key={item.id} className="flex justify-between items-center bg-slate-50 px-4 py-3 rounded-xl text-sm border border-slate-100">
@@ -418,12 +356,12 @@ function Cotizador() {
             </div>
           </div>
 
-          {/* PRESENTACIONES Y PRECIOS */}
+          {/* NUEVO: CONFIGURADOR DE PRESENTACIONES Y PRECIOS FINALES */}
           <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
             <div className="flex justify-between items-center mb-4">
               <div>
                 <h3 className="font-serif font-bold text-lg text-[#4A2B50]">Presentaciones y Precios del Menú</h3>
-                <p className="text-xs text-slate-500">Define los paquetes que verá el cliente</p>
+                <p className="text-xs text-slate-500">Define los paquetes que verá el cliente (1 pz, 6 pz, 12 pz, etc.)</p>
               </div>
               <button type="button" onClick={agregarPresentacion} className="text-xs font-bold bg-[#F5EEFD] text-[#4A2B50] px-3 py-2 rounded-xl hover:bg-[#eadeff]">
                 <i className="fa-solid fa-plus mr-1"></i> Agregar Paquete
@@ -439,24 +377,24 @@ function Cotizador() {
                 return (
                   <div key={pres.id} className="flex gap-3 items-center bg-slate-50 p-3 rounded-2xl border border-slate-100">
                     <div className="w-24">
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase">Piezas</label>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase">Piezas que trae</label>
                       <input type="number" min="1" value={pres.cantidad} onChange={(e) => actualizarPresentacion(pres.id, 'cantidad', e.target.value)} 
                         className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-sm font-bold text-center text-[#4A2B50]" />
                     </div>
                     
                     <div className="flex-1">
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase">Nombre</label>
-                      <input type="text" placeholder="Ej. 6 Piezas" value={pres.nombre} onChange={(e) => actualizarPresentacion(pres.id, 'nombre', e.target.value)} 
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase">Nombre para el cliente</label>
+                      <input type="text" placeholder="Ej. 6 Piezas (Media Docena)" value={pres.nombre} onChange={(e) => actualizarPresentacion(pres.id, 'nombre', e.target.value)} 
                         className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-sm" />
                     </div>
 
                     <div className="w-32 text-right hidden sm:block">
-                      <span className="block text-[10px] text-slate-400 uppercase font-bold">Sugerido</span>
+                      <span className="block text-[10px] text-slate-400 uppercase font-bold">Sugerido (${margenGanancia}%)</span>
                       <span className="text-sm font-bold text-emerald-600">${sugeridoPres.toFixed(2)}</span>
                     </div>
 
                     <div className="w-32">
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase">Precio Final</label>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase">Precio Final ($)</label>
                       <input type="number" step="0.50" placeholder="0.00" value={pres.precioVenta} onChange={(e) => actualizarPresentacion(pres.id, 'precioVenta', e.target.value)} 
                         className="w-full bg-white border-2 border-emerald-200 rounded-xl px-3 py-1.5 text-sm font-black text-slate-800" />
                     </div>
@@ -472,7 +410,7 @@ function Cotizador() {
             </div>
           </div>
 
-          {/* MARGEN Y RESULTADOS */}
+          {/* GANANCIA Y RESULTADOS */}
           <div className="grid md:grid-cols-2 gap-4">
             
             <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-center">

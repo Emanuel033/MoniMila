@@ -1,5 +1,10 @@
+# MoniMila Bakery - robots.txt
+# Permitir indexación en todo el sitio, EXCEPTO /cotizador
+
 User-agent: *
 Allow: /
-Disallow: /admin.html/, /login.html/
-# Sitemap location
-Sitemap: https://productoseen.web.app/sitemap.xml
+Disallow: /cotizador
+
+# Mapa del sitio
+Sitemap: https://monmilabakery.web.app/sitemap.xml
+

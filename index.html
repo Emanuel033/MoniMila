@@ -1,41 +1,48 @@
 <!doctype html>
-<html lang="es">
+<html lang="es-MX">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    
+    <!-- ✅ Indexación permitida -->
+    <meta name="robots" content="index, follow">
+    
+    <!-- ✅ Meta descripción completa con panadería Y repostería -->
+    <meta name="description" content="MoniMila Bakery — Panadería y Repostería Artesanal. Panes, pasteles, postres y dulces hechos a mano con los mejores ingredientes. Pedidos en Ecatepec y CDMX.">
+    <meta name="keywords" content="MoniMila Bakery, panadería artesanal, repostería artesanal, panes, pasteles, postres, dulces, Ecatepec, CDMX">
+    
+    <!-- ✅ Canonical -->
+    <link rel="canonical" href="https://monmilabakery.web.app/">
+    
+    <!-- ✅ Open Graph -->
+    <meta property="og:title" content="MoniMila Bakery — Panadería y Repostería Artesanal">
+    <meta property="og:description" content="Panes, pasteles y postres artesanales hechos con amor. Calidad y sabor en cada bocado. Conoce nuestros productos.">
+    <meta property="og:url" content="https://monmilabakery.web.app/">
+    <meta property="og:type" content="website">
+    <meta property="og:locale" content="es_MX">
+    
     <link rel="icon" href="/icons/logo-192.png" />
     <link rel="apple-touch-icon" href="/icons/logo-192.png" />
     
     <meta name="theme-color" content="#312e81" />
-    <title>MoniMila Bakery</title>
+    <title>MoniMila Bakery — Panadería y Repostería Artesanal</title>
     
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
     <script>
       (function() {
         const path = window.location.pathname;
-        let manifestUrl = '/manifest.json'; // Por defecto instala el Catálogo
-        
-        if (path.includes('rutas')) {
-          manifestUrl = '/manifest-rutas.json';
-        } else if (path.includes('admin')) {
-          manifestUrl = '/manifest-admin.json';
-        } else if (path.includes('chofer')) {
-          manifestUrl = '/manifest-chofer.json';
-        } else if (path.includes('inventario')) {
-          manifestUrl = '/manifest-inventario.json';
-        }
+        let manifestUrl = '/manifest.json';
 
         const link = document.createElement('link');
         link.rel = 'manifest';
         link.href = manifestUrl;
         document.head.appendChild(link);
       })();
-      
-      // 🚨 EL REGISTRO DEL SERVICE WORKER SE ELIMINÓ DE AQUÍ 🚨
     </script>
     <style>
       body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f8fafc; }
@@ -43,8 +50,10 @@
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>   <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+    <script type="module" src="/src/main.jsx"></script>
+    
+    <!-- Solo entorno de desarrollo -->
+    <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
     <script>eruda.init();</script>
-
   </body>
 </html>
