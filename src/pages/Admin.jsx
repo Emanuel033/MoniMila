@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { db } from '../firebase';
 import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot } from 'firebase/firestore';
 import Cotizador from './Cotizador';
+import Produccion from './Produccion';
 
 function Admin() {
   const [seccionActiva, setSeccionActiva] = useState('catalogo');
@@ -189,6 +190,10 @@ function Admin() {
           <button onClick={() => setSeccionActiva('cotizador')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${seccionActiva === 'cotizador' ? 'bg-white/20 font-bold' : 'hover:bg-white/10'}`}>
             <i className="fa-solid fa-calculator w-5"></i> Cotizador & Receta
           </button>
+          {/* ✅ NUEVO: Botón de Producción y Rentabilidad */}
+          <button onClick={() => setSeccionActiva('produccion')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${seccionActiva === 'produccion' ? 'bg-white/20 font-bold' : 'hover:bg-white/10'}`}>
+            <i className="fa-solid fa-chart-line w-5"></i> Producción y Rentabilidad
+          </button>
         </nav>
       </aside>
 
@@ -237,7 +242,7 @@ function Admin() {
                   <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Categoría</label>
                     <input list="categorias-sugeridas" value={categoria} onChange={(e) => setCategoria(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#4A2B50]" />
-                    <datalist id="categorias-sugeridas"><option value="Alfajores"/><option value="Roscas"/><option value="Saludable"/></datalist>
+                    <datalist id="categorias-sugeridas"><option value="Panadería Artesanal"/><option value="Repostería"/><option value="Galletas y Alfajores"/></datalist>
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Subcategoría</label>
@@ -322,7 +327,7 @@ function Admin() {
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {productosOrdenados.length === 0 ? (
-                      <tr><td colSpan="4" className="px-4 py-8 text-center text-slate-400">
+                      <tr><td colSpan="5" className="px-4 py-8 text-center text-slate-400">
                         No hay productos aún. Crea el primero arriba 👆
                       </td></tr>
                     ) : (
@@ -356,6 +361,7 @@ function Admin() {
         )}
         
         {seccionActiva === 'cotizador' && <Cotizador />}
+        {seccionActiva === 'produccion' && <Produccion />}
       </main>
     </div>
   );
