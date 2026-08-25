@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
-import { collection, addDoc, deleteDoc, doc, getDocs, onSnapshot, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, deleteDoc, doc, onSnapshot, updateDoc } from 'firebase/firestore';
 
 function Cotizador() {
   const [ingredientesDB, setIngredientesDB] = useState([]);
   const [productosDB, setProductosDB] = useState([]); 
   
   const [editandoIngId, setEditandoIngId] = useState(null);
-  const [ingAnterior, setIngAnterior] = useState(null); // ← guarda datos antes de editar
+  const [ingAnterior, setIngAnterior] = useState(null);
   const [nuevoIngNombre, setNuevoIngNombre] = useState('');
   const [nuevoIngCosto, setNuevoIngCosto] = useState('');
   const [nuevoIngCantidad, setNuevoIngCantidad] = useState('');
@@ -20,7 +20,7 @@ function Cotizador() {
   const [margenGanancia, setMargenGanancia] = useState(50);
   const [presentaciones, setPresentaciones] = useState([]);
   const [mensaje, setMensaje] = useState('');
-  const [alertaImpacto, setAlertaImpacto] = useState(null); // ← alerta de productos afectados
+  const [alertaImpacto, setAlertaImpacto] = useState(null);
 
   const [recetaIngId, setRecetaIngId] = useState('');
   const [recetaCantidad, setRecetaCantidad] = useState('');
@@ -82,12 +82,15 @@ function Cotizador() {
   // =============================================================
   // 🧮 RECALCULAR COSTO DINÁMICO
   // =============================================================
-  const costoTotal = materialesReceta.reduce((sum, item) => {
-    const ingActual = ingredientesDB.find(i => i.id === item.ingredienteId);
-    if (!ingActual) return sum;
-    return sum + (item.cantidadUnidadBase * ingActual.costoPorUnidadBase);
-  }, 0);
+  const calcularCostoReceta = (recetaIngredientes) => {
+    return recetaIngredientes.reduce((sum, item) => {
+      const ing = ingredientesDB.find(i => i.id === item.ingredienteId);
+      if (!ing) return sum;
+      return sum + (item.cantidadUnidadBase * ing.costoPorUnidadBase);
+    }, 0);
+  };
 
+  const costoTotal = calcularCostoReceta(materialesReceta);
   const costoPorPieza = piezasProducidas > 0 ? costoTotal / piezasProducidas : 0;
   const precioPieza = costoPorPieza * (1 + margenGanancia / 100);
 
@@ -95,35 +98,83 @@ function Cotizador() {
   // 📊 CALCULAR IMPACTO AL CAMBIAR INGREDIENTE
   // =============================================================
   const calcularImpacto = (ingredienteId, costoAnterior, costoNuevo) => {
-    if (costoAnterior === costoNuevo) return [];
-    const diferenciaPorUnidad = costoNuevo - costoAnterior;
-    const porcentajeCambio = ((costoNuevo - costoAnterior) / costoAnterior) * 100;
-
-    return productosDB.filter(prod => 
+    if (costoAnterior === costoNuevo) return { afectados: [], porcentajeIng: 0 };
+    
+    const porcentajeIng = ((costoNuevo - costoAnterior) / costoAnterior) * 100;
+    const afectados = productosDB.filter(prod => 
       prod.recetaIngredientes?.some(item => item.ingredienteId === ingredienteId)
     ).map(prod => {
-      const uso = prod.recetaIngredientes.find(item => item.ingredienteId === ingredienteId);
-      const cantidadUsada = uso.cantidadUnidadBase;
-      const impactoPorLote = cantidadUsada * diferenciaPorUnidad;
-      const piezas = prod.piezasPorLote || 1;
-      const impactoPorPieza = impactoPorLote / piezas;
       const costoAnteriorProd = prod.costoRealProduccion || 0;
-      const costoNuevoProd = costoAnteriorProd + impactoPorPieza;
+      const costoNuevoProd = calcularCostoReceta(prod.recetaIngredientes) / (prod.piezasPorLote || 1);
+      const margenGuardado = prod.margenGanancia || 50;
+      const precioSugeridoAnterior = prod.precioSugerido || 0;
+      const precioSugeridoNuevo = costoNuevoProd * (1 + margenGuardado / 100);
 
       return {
+        id: prod.id,
         nombre: prod.nombre,
-        impactoPorPieza,
         costoAnterior: costoAnteriorProd,
         costoNuevo: costoNuevoProd,
-        porcentajeCambio: costoAnteriorProd > 0 
+        margenUsado: margenGuardado,
+        precioSugeridoAnterior,
+        precioSugeridoNuevo,
+        variacionCosto: costoNuevoProd - costoAnteriorProd,
+        variacionPorcentaje: costoAnteriorProd > 0 
           ? ((costoNuevoProd - costoAnteriorProd) / costoAnteriorProd) * 100 
           : 0
       };
     });
+
+    return { afectados, porcentajeIng };
   };
 
   // =============================================================
-  // 💾 GUARDAR INGREDIENTE CON ALERTA DE IMPACTO
+  // 💾 ACTUALIZAR PRECIOS DE PRODUCTOS AFECTADOS AUTOMÁTICAMENTE
+  // =============================================================
+  const actualizarProductosAfectados = async (listaProductos) => {
+    const resultados = { actualizados: 0, fallidos: 0 };
+    
+    for (const prod of listaProductos) {
+      try {
+        const productoOriginal = productosDB.find(p => p.id === prod.id);
+        if (!productoOriginal) continue;
+
+        // Recalcular todo con precios nuevos, respetando margen guardado
+        const lote = productoOriginal.piezasPorLote || 1;
+        const costoLote = calcularCostoReceta(productoOriginal.recetaIngredientes);
+        const costoPorPiezaNuevo = lote > 0 ? costoLote / lote : 0;
+        const margen = productoOriginal.margenGanancia || 50;
+        const precioSugeridoNuevo = costoPorPiezaNuevo * (1 + margen / 100);
+
+        // Actualizar presentaciones: recalcular precio sugerido, NO tocar precio final
+        const presActualizadas = (productoOriginal.presentaciones || []).map(p => {
+          const cant = p.cantidadPiezas || 1;
+          return {
+            nombre: p.nombre,
+            cantidadPiezas: cant,
+            precio: p.precio, // ⚠️ Precio final que pusiste tú → SE QUEDA IGUAL
+            precioSugerido: parseFloat((costoPorPiezaNuevo * cant * (1 + margen / 100)).toFixed(2))
+          };
+        });
+
+        await updateDoc(doc(db, "productos", prod.id), {
+          costoRealProduccion: parseFloat(costoPorPiezaNuevo.toFixed(4)),
+          precioSugerido: parseFloat(precioSugeridoNuevo.toFixed(2)),
+          presentaciones: presActualizadas,
+          fechaModificacion: new Date()
+        });
+
+        resultados.actualizados++;
+      } catch (err) {
+        console.error(`Error al actualizar ${prod.nombre}:`, err);
+        resultados.fallidos++;
+      }
+    }
+    return resultados;
+  };
+
+  // =============================================================
+  // 💾 GUARDAR INGREDIENTE + ACTUALIZAR PRODUCTOS AFECTADOS
   // =============================================================
   const guardarIngredienteDB = async (e) => {
     e.preventDefault();
@@ -140,22 +191,30 @@ function Cotizador() {
 
     try {
       if (editandoIngId && ingAnterior) {
-        // Calcular impacto antes de guardar
-        const afectados = calcularImpacto(editandoIngId, ingAnterior.costoPorUnidadBase, costoNuevo);
+        // 1. Calcular impacto
+        const { afectados, porcentajeIng } = calcularImpacto(editandoIngId, ingAnterior.costoPorUnidadBase, costoNuevo);
         
+        // 2. Guardar cambio del ingrediente
         await updateDoc(doc(db, "ingredientes", editandoIngId), datos);
 
+        // 3. Actualizar productos afectados automáticamente
+        let res = { actualizados: 0, fallidos: 0 };
+        if (afectados.length > 0) {
+          res = await actualizarProductosAfectados(afectados);
+        }
+
+        // 4. Mostrar resultados
         if (afectados.length > 0) {
           setAlertaImpacto({
             ingrediente: nuevoIngNombre,
-            porcentajeIng: ((costoNuevo - ingAnterior.costoPorUnidadBase) / ingAnterior.costoPorUnidadBase) * 100,
+            porcentajeIng,
             productos: afectados
           });
-          setMensaje(`⚠️ Precio actualizado — ${afectados.length} producto(s) cambiaron su costo`);
+          setMensaje(`✅ Precio actualizado — ${res.actualizados} producto(s) recalculados automáticamente usando su margen guardado`);
         } else {
           setMensaje("✅ Precio actualizado — ningún producto usa este ingrediente todavía");
         }
-        setTimeout(() => { setMensaje(''); setAlertaImpacto(null); }, 8000);
+        setTimeout(() => { setMensaje(''); setAlertaImpacto(null); }, 10000);
       } else {
         await addDoc(collection(db, "ingredientes"), datos);
         setMensaje("✅ Ingrediente agregado a la alacena");
@@ -167,7 +226,7 @@ function Cotizador() {
 
   const prepararEdicionIngrediente = (ing) => {
     setEditandoIngId(ing.id);
-    setIngAnterior(ing); // ← guardamos estado original
+    setIngAnterior(ing);
     setNuevoIngNombre(ing.nombre);
     setNuevoIngCosto(ing.costoCompra);
     setNuevoIngCantidad(ing.cantidadCompra);
@@ -229,7 +288,7 @@ function Cotizador() {
     setPresentaciones(presentaciones.map(p => p.id === id ? { ...p, [campo]: valor } : p));
   };
 
-  // 💾 Guardar receta
+  // 💾 Guardar receta manualmente
   const guardarRecetaEnProducto = async () => {
     if (!productoSeleccionadoId) {
       alert("⚠️ Primero selecciona un producto del menú desplegable arriba");
@@ -292,9 +351,10 @@ function Cotizador() {
               <thead>
                 <tr className="bg-amber-100/50 text-amber-800">
                   <th className="text-left py-2 px-4 font-bold">Producto</th>
-                  <th className="text-right py-2 px-4 font-bold">Costo Anterior</th>
+                  <th className="text-right py-2 px-4 font-bold">Costo Ant.</th>
                   <th className="text-right py-2 px-4 font-bold">Costo Nuevo</th>
-                  <th className="text-right py-2 px-4 font-bold">Variación</th>
+                  <th className="text-right py-2 px-4 font-bold">Margen usado</th>
+                  <th className="text-right py-2 px-4 font-bold">Precio Sugerido</th>
                 </tr>
               </thead>
               <tbody>
@@ -303,11 +363,12 @@ function Cotizador() {
                     <td className="py-3 px-4 font-medium">{prod.nombre}</td>
                     <td className="py-3 px-4 text-right text-slate-500">${prod.costoAnterior.toFixed(2)}</td>
                     <td className="py-3 px-4 text-right font-bold text-[#4A2B50]">${prod.costoNuevo.toFixed(2)}</td>
-                    <td className={`py-3 px-4 text-right font-bold ${prod.impactoPorPieza > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
-                      {prod.impactoPorPieza > 0 ? '+' : ''}${prod.impactoPorPieza.toFixed(2)} / pza
-                      <span className="block text-xs opacity-70">
-                        {prod.porcentajeCambio !== 0 && (prod.porcentajeCambio > 0 ? '+' : '')}{prod.porcentajeCambio.toFixed(1)}%
-                      </span>
+                    <td className="py-3 px-4 text-center text-xs">
+                      <span className="bg-slate-100 px-2 py-1 rounded-full">{prod.margenUsado}%</span>
+                    </td>
+                    <td className="py-3 px-4 text-right font-bold">
+                      <span className="text-slate-400 line-through text-xs">${prod.precioSugeridoAnterior.toFixed(2)}</span>
+                      <span className="text-emerald-600 ml-1">${prod.precioSugeridoNuevo.toFixed(2)}</span>
                     </td>
                   </tr>
                 ))}
@@ -315,7 +376,8 @@ function Cotizador() {
             </table>
           </div>
           <p className="mt-3 text-xs text-amber-700">
-            💡 Ve al producto afectado y presiona "Guardar Receta y Precios" para actualizar su costo y precio sugerido.
+            💡 Los precios se recalcularon automáticamente usando el margen guardado de cada producto. 
+            Tu precio final de venta NO se modificó — puedes ajustarlo cuando quieras.
           </p>
         </div>
       )}
@@ -643,6 +705,7 @@ function Cotizador() {
 }
 
 export default Cotizador;
+
 
 
 
